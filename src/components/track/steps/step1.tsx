@@ -68,6 +68,7 @@ const Step1 = (props: IProps) => {
                             })
                         }
                     })
+                    console.log(">>>check res: ", res)
                 props.setTrackUpload((prevState: any) => ({
                     ...prevState,
                     uploadedTrackName: res.data.data.fileName
