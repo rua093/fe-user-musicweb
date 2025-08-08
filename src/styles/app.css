@@ -1,5 +1,242 @@
+/* Milkyway Music Theme - Global Styles */
+
+/* Import existing styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* Global Milkyway Theme Variables */
+:root {
+  --milkyway-primary: #60A5FA;
+  --milkyway-secondary: #8B5CF6;
+  --milkyway-accent: #3B82F6;
+  --milkyway-dark: #0F172A;
+  --milkyway-darker: #1E293B;
+  --milkyway-light: rgba(255, 255, 255, 0.9);
+  --milkyway-lighter: rgba(255, 255, 255, 0.7);
+  --milkyway-muted: rgba(255, 255, 255, 0.5);
+}
+
+/* Basic HTML and Body styles */
 html,
 body {
     margin: 0;
     padding: 0;
+    background: #181818;
+    color: #fff;
+    font-family: inherit;
+}
+
+/* Milkyway Theme Animations */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(96, 165, 250, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(96, 165, 250, 0.6);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes cosmic-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-5px) rotate(-1deg);
+  }
+}
+
+@keyframes spin {
+  0% { 
+    transform: rotate(0deg); 
+  }
+  100% { 
+    transform: rotate(360deg); 
+  }
+}
+
+/* Apply animations to specific elements */
+.milkyway-star {
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+.milkyway-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.milkyway-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.milkyway-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.milkyway-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.2), transparent);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+}
+
+.milkyway-cosmic {
+  animation: cosmic-float 8s ease-in-out infinite;
+}
+
+/* Enhanced scrollbar for Milkyway theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #60A5FA, #8B5CF6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #3B82F6, #6366F1);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(96, 165, 250, 0.3);
+  color: white;
+}
+
+/* Focus styles for accessibility */
+*:focus {
+  outline: 2px solid rgba(96, 165, 250, 0.5);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition: all 0.2s ease;
+}
+
+/* Enhanced button hover effects */
+.milkyway-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.milkyway-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.milkyway-button:hover::before {
+  left: 100%;
+}
+
+/* Loading spinner for Milkyway theme */
+.milkyway-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(96, 165, 250, 0.3);
+  border-top: 3px solid #60A5FA;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive design enhancements */
+@media (max-width: 768px) {
+  .milkyway-responsive {
+    padding: 1rem;
+  }
+  
+  .milkyway-responsive h1 {
+    font-size: 1.5rem;
+  }
+  
+  .milkyway-responsive h2 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Dark mode enhancements */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --milkyway-primary: #60A5FA;
+    --milkyway-secondary: #8B5CF6;
+    --milkyway-accent: #3B82F6;
+  }
+}
+
+/* Print styles */
+@media print {
+  .milkyway-no-print {
+    display: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --milkyway-primary: #3B82F6;
+    --milkyway-secondary: #6366F1;
+    --milkyway-accent: #1D4ED8;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

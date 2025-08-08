@@ -9,7 +9,23 @@ const roboto = Roboto({
 
 const theme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
+    background: {
+      default: '#181818',
+      paper: '#232323',
+    },
+    primary: {
+      main: '#ff5500',
+      contrastText: '#fff',
+    },
+    secondary: {
+      main: '#fff',
+      contrastText: '#181818',
+    },
+    text: {
+      primary: '#fff',
+      secondary: '#bbb',
+    },
   },
   typography: {
     fontFamily: roboto.style.fontFamily,
@@ -22,6 +38,21 @@ const theme = createTheme({
             backgroundColor: '#60a5fa',
           }),
         }),
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#181818',
+          color: '#fff',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#232323',
+        },
       },
     },
   },

@@ -3,14 +3,14 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import Slider from "react-slick";
 import { Settings } from "react-slick";
-import { Box } from "@mui/material";
+import { Box, Typography, useTheme, useMediaQuery, IconButton } from "@mui/material";
 import Button from "@mui/material/Button/Button";
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Divider from '@mui/material/Divider';
-import Link from "next/link";
-import { convertSlugUrl } from "@/utils/api";
-import Image from "next/image";
+import TrackCard from "@/components/track/TrackCard";
+import StarIcon from '@mui/icons-material/Star';
+
 interface IProps {
     data: ITrackTop[];
     title: string;
@@ -18,46 +18,81 @@ interface IProps {
 
 const MainSlider = (props: IProps) => {
     const { data, title } = props;
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     const NextArrow = (props: any) => {
         return (
-            <Button color="inherit" variant="contained"
+            <IconButton
                 onClick={props.onClick}
                 sx={{
                     position: "absolute",
-                    right: 25,
-                    top: "25%",
+                    right: -20,
+                    top: "40%",
                     zIndex: 2,
-                    minWidth: 30,
-                    width: 35,
+                    width: 44,
+                    height: 44,
+                    background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
+                    color: '#fff',
+                    boxShadow: '0 8px 25px rgba(96, 165, 250, 0.4)',
+                    border: '2px solid rgba(96, 165, 250, 0.3)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': { 
+                        background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                        transform: 'scale(1.1)',
+                        boxShadow: '0 12px 35px rgba(96, 165, 250, 0.6)'
+                    },
+                    transition: 'all 0.3s ease',
+                    '@media (max-width: 768px)': {
+                        right: -10,
+                        width: 36,
+                        height: 36,
+                    }
                 }}
             >
                 <ChevronRightIcon />
-            </Button>
+            </IconButton>
         )
     }
 
     const PrevArrow = (props: any) => {
         return (
-            <Button color="inherit" variant="contained"
+            <IconButton
                 onClick={props.onClick}
                 sx={{
                     position: "absolute",
-                    top: "25%",
+                    left: -20,
+                    top: "40%",
                     zIndex: 2,
-                    minWidth: 30,
-                    width: 35,
+                    width: 44,
+                    height: 44,
+                    background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
+                    color: '#fff',
+                    boxShadow: '0 8px 25px rgba(96, 165, 250, 0.4)',
+                    border: '2px solid rgba(96, 165, 250, 0.3)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': { 
+                        background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                        transform: 'scale(1.1)',
+                        boxShadow: '0 12px 35px rgba(96, 165, 250, 0.6)'
+                    },
+                    transition: 'all 0.3s ease',
+                    '@media (max-width: 768px)': {
+                        left: -10,
+                        width: 36,
+                        height: 36,
+                    }
                 }}
             >
                 <ChevronLeftIcon />
-            </Button>
+            </IconButton>
         )
     }
 
     const settings: Settings = {
         infinite: true,
         speed: 500,
-        slidesToShow: 5,
+        slidesToShow: isMobile ? 1 : 4,
         slidesToScroll: 1,
         nextArrow: <NextArrow />,
         prevArrow: <PrevArrow />,
@@ -66,7 +101,7 @@ const MainSlider = (props: IProps) => {
                 breakpoint: 1024,
                 settings: {
                     slidesToShow: 3,
-                    slidesToScroll: 3,
+                    slidesToScroll: 1,
                     infinite: true,
                     dots: true
                 }
@@ -75,8 +110,8 @@ const MainSlider = (props: IProps) => {
                 breakpoint: 600,
                 settings: {
                     slidesToShow: 2,
-                    slidesToScroll: 2,
-                    initialSlide: 2
+                    slidesToScroll: 1,
+                    initialSlide: 1
                 }
             },
             {
@@ -88,77 +123,82 @@ const MainSlider = (props: IProps) => {
             }
         ]
     };
-    //box === div
+
     return (
-
-        <Box
-            sx={{
-                margin: "0 50px",
-                ".track": {
-                    padding: "0 10px",
-
-                    "img": {
-                        height: 150,
-                        width: 150
+        <Box sx={{
+            width: '100%',
+            px: { xs: 0, sm: 2, md: 4 },
+            mb: 2,
+        }}>
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                mb: 3
+            }}>
+                <StarIcon sx={{ 
+                    color: '#60A5FA', 
+                    fontSize: 18,
+                    animation: 'twinkle 2s ease-in-out infinite'
+                }} />
+                <Typography variant="h6" fontWeight={700} sx={{ 
+                    color: '#fff',
+                    background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                    {title}
+                </Typography>
+                <StarIcon sx={{ 
+                    color: '#60A5FA', 
+                    fontSize: 18,
+                    animation: 'twinkle 2s ease-in-out infinite 1s'
+                }} />
+            </Box>
+            <Box sx={{ 
+                position: 'relative',
+                '& .slick-slider': {
+                    '& .slick-dots': {
+                        bottom: -40,
+                        '& li': {
+                            '& button:before': {
+                                color: 'rgba(96, 165, 250, 0.5)',
+                                fontSize: '12px',
+                            },
+                            '&.slick-active button:before': {
+                                color: '#60A5FA',
+                            }
+                        }
+                    },
+                    '& .slick-track': {
+                        display: 'flex',
+                        gap: 2,
+                    },
+                    '& .slick-slide': {
+                        '& > div': {
+                            padding: '0 8px',
+                        }
                     }
-                },
-                "h3": {
-                    border: "1px solid #ccc",
-                    padding: "20px",
-                    height: "200px",
-
                 }
-            }}
-        >
-            <h2> {title} </h2>
-            <Slider {...settings}>
-                {data.map(track => {
-                    return (
-                        <div className="track" key={track._id}>
-
-                            <div
-                                style={{
-                                    position: "relative",
-                                    height: "150px",
-                                    width: "150px"
-                                }}
-                            >
-                                <Image
-                                    alt="eric image"
-                                    src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/images/${track.imgUrl}`}
-                                    fill
-                                    style={{
-                                        objectFit: 'contain',
-                                    }}
-                                />
-                            </div>
-
-                            <Link
-                                style={{
-
-                                    textDecoration: "none", color: "unset", fontSize: "14px"
-                                }}
-                                href={`/track/${convertSlugUrl(track.title)}-${track._id}.html?audio=${track.trackUrl}`}>
-                                <div style={{
-                                    margin: "12px 0 15px 0",
-                                }}>
-                                    {track.title}
-                                </div>
-                            </Link>
-                            <div
-                                style={{
-                                    marginBottom: "7px",
-                                    color: "#ccc",
-                                    fontSize: "13px"
-
-                                }}>{track.description}</div>
-                        </div>
-                    )
-                })}
-            </Slider>
-            <Divider />
+            }}>
+                <Slider {...settings}>
+                    {data.map(track => (
+                        <Box key={track._id} sx={{ 
+                            px: 1, 
+                            py: 2,
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                                transform: 'translateY(-5px)',
+                            }
+                        }}>
+                            <TrackCard track={track} />
+                        </Box>
+                    ))}
+                </Slider>
+            </Box>
         </Box>
-
     );
 }
 

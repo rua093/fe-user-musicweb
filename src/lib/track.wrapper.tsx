@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useRef } from "react";
 
 
 
@@ -14,6 +14,7 @@ export const TrackContextProvider = ({ children }: { children: React.ReactNode }
         "category": "",
         "imgUrl": "",
         "trackUrl": "",
+        "duration": 0,
         "countLike": 0,
         "countPlay": 0,
         "uploader": {
@@ -26,12 +27,16 @@ export const TrackContextProvider = ({ children }: { children: React.ReactNode }
         "isDeleted": false,
         "createdAt": "",
         "updatedAt": "",
-        isPlaying: false
+        isPlaying: false,
+        currentTime: 0,
     }
     const [currentTrack, setCurrentTrack] = useState<IShareTrack>(initValue);
-
+    const waveControlRef = useRef<ITrackContext["waveControl"]>();
+    const setWaveControl = (control: ITrackContext["waveControl"]) => {
+        waveControlRef.current = control;
+    };
     return (
-        <TrackContext.Provider value={{ currentTrack, setCurrentTrack }}>
+        <TrackContext.Provider value={{ currentTrack, setCurrentTrack, waveControl: waveControlRef.current }}>
             {children}
         </TrackContext.Provider>
     )

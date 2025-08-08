@@ -5,6 +5,7 @@ import NextAuthWrapper from '@/lib/next.auth.wrapper';
 import NProgressWrapper from '@/lib/nprogress.wrapper';
 import { TrackContextProvider } from '@/lib/track.wrapper';
 import { ToastProvider } from '@/utils/toast';
+import AppFooter from '@/components/footer/app.footer';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ToastProvider>
                 <TrackContextProvider>
                   {children}
+                  <AppFooter />
                 </TrackContextProvider>
               </ToastProvider>
             </NextAuthWrapper>

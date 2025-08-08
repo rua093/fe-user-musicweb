@@ -47,12 +47,32 @@ const UploadTabs = () => {
     };
 
     return (
-        <Box sx={{ width: '100%', border: "1px solid #ccc", mt: 2 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ 
+            width: '100%', 
+            background: 'rgba(255,255,255,0.02)',
+            borderRadius: 3,
+            overflow: 'hidden'
+        }}>
+            <Box sx={{ 
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.03)'
+            }}>
                 <Tabs
                     value={value}
                     onChange={handleChange}
                     aria-label="basic tabs example"
+                    sx={{
+                        '& .MuiTab-root': {
+                            color: 'rgba(255,255,255,0.7)',
+                            fontWeight: 500,
+                            '&.Mui-selected': {
+                                color: '#4facfe',
+                            },
+                        },
+                        '& .MuiTabs-indicator': {
+                            backgroundColor: '#4facfe',
+                        },
+                    }}
                 >
                     <Tab label="Tracks" disabled={value !== 0} />
                     <Tab label="Basic information" disabled={value !== 1} />

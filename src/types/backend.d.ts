@@ -10,6 +10,7 @@ declare global {
         "category": string;
         "imgUrl": string;
         "trackUrl": string;
+        "duration": number;
         "countLike": number;
         "countPlay": number;
         "uploader": {
@@ -53,11 +54,18 @@ declare global {
 
     interface IShareTrack extends ITrackTop {
         isPlaying: boolean;
+        currentTime: number;
+        _source?: 'wave' | 'bar';
     }
 
     interface ITrackContext {
         currentTrack: IShareTrack;
         setCurrentTrack: (v: IShareTrack) => void;
+        waveControl?: {
+            play: () => void;
+            pause: () => void;
+            seek: (time: number) => void;
+        };
     }
 
     interface ITrackComment {

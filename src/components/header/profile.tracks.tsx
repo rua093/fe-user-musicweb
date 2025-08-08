@@ -7,84 +7,217 @@ import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import { useTrackContext } from '@/lib/track.wrapper';
 import PauseIcon from '@mui/icons-material/Pause';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import { useTrackContext } from '@/lib/track.wrapper';
 import Link from 'next/link';
 import { convertSlugUrl } from '@/utils/api';
 
 interface IProps {
     data: ITrackTop
 }
+
 const ProfileTracks = (props: IProps) => {
     const { data } = props;
     const theme = useTheme();
     const { currentTrack, setCurrentTrack } = useTrackContext() as ITrackContext;
 
+    const formatDuration = (seconds: number) => {
+        if (!seconds || seconds === 0) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const formatNumber = (num: number | undefined) => {
+        const value = num || 0;
+        if (value >= 1000000) {
+            return (value / 1000000).toFixed(1) + 'M';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(1) + 'K';
+        }
+        return value.toString();
+    };
+
     return (
-        <Card sx={{ display: 'flex', justifyContent: "space-between" }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flex: '1 0 auto' }}>
-                    <Link
-                        style={{
-                            textDecoration: "none",
-                            color: "unset"
+        <Card 
+            sx={{ 
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: 3,
+                overflow: 'hidden',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                border: '1px solid rgba(255,255,255,0.05)',
+                '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 24px rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.05)',
+                }
+            }}
+        >
+            {/* Image Section */}
+            <Box sx={{ position: 'relative' }}>
+                <CardMedia
+                    component="img"
+                    sx={{ 
+                        height: 200,
+                        width: '100%',
+                        objectFit: 'cover',
+                        background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)'
+                    }}
+                    image={`${process.env.NEXT_PUBLIC_BACKEND_URL}/images/${data.imgUrl}`}
+                    alt={data.title || 'Track cover'}
+                />
+                
+                {/* Play Button Overlay */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        opacity: 0,
+                        transition: 'opacity 0.3s ease',
+                        '.MuiCard-root:hover &': {
+                            opacity: 1
+                        }
+                    }}
+                >
+                    <IconButton
+                        sx={{
+                            background: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            width: 60,
+                            height: 60,
+                            '&:hover': {
+                                background: 'rgba(0,0,0,0.8)',
+                                transform: 'scale(1.1)'
+                            }
                         }}
-                        href={`/track/${convertSlugUrl(data.title)}-${data._id}.html?audio=${data.trackUrl}`}>
-                        <Typography component="div" variant="h5" >
-                            {data.title}
-                        </Typography>
-                    </Link>
-
-                    <Typography variant="subtitle1" color="text.secondary" component="div">
-                        {data.description}
-                    </Typography>
-                </CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', pl: 1, pb: 1 }}>
-                    <IconButton aria-label="previous">
-                        {theme.direction === 'rtl' ? <SkipNextIcon /> : <SkipPreviousIcon />}
-                    </IconButton>
-
-                    {
-                        (data._id !== currentTrack._id ||
-                            data._id === currentTrack._id && currentTrack.isPlaying === false
-                        )
-                        &&
-                        <IconButton aria-label="play/pause"
-                            onClick={(e) => {
-                                setCurrentTrack({ ...data, isPlaying: true });
-                            }}
-                        >
-                            <PlayArrowIcon sx={{ height: 38, width: 38 }} />
-                        </IconButton>
-                    }
-
-                    {data._id === currentTrack._id && currentTrack.isPlaying === true
-                        &&
-                        <IconButton aria-label="play/pause"
-                            onClick={(e) => {
-                                setCurrentTrack({ ...data, isPlaying: false });
-                            }}
-                        >
-                            <PauseIcon sx={{ height: 38, width: 38 }}
-                            />
-                        </IconButton>
-                    }
-
-
-                    <IconButton aria-label="next">
-                        {theme.direction === 'rtl' ? <SkipPreviousIcon /> : <SkipNextIcon />}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (data._id !== currentTrack._id || 
+                                (data._id === currentTrack._id && currentTrack.isPlaying === false)) {
+                                setCurrentTrack({ ...data, isPlaying: true, currentTime: 0 });
+                            } else {
+                                setCurrentTrack({ ...data, isPlaying: false, currentTime: 0 });
+                            }
+                        }}
+                    >
+                        {(data._id === currentTrack._id && currentTrack.isPlaying === true) ? (
+                            <PauseIcon sx={{ fontSize: 28 }} />
+                        ) : (
+                            <PlayArrowIcon sx={{ fontSize: 28 }} />
+                        )}
                     </IconButton>
                 </Box>
+
+                {/* Duration Badge */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        background: 'rgba(0,0,0,0.8)',
+                        color: 'white',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                    }}
+                >
+                    {formatDuration(data.duration || 0)}
+                </Box>
             </Box>
-            <CardMedia
-                component="img"
-                sx={{ width: 151 }}
-                image={`${process.env.NEXT_PUBLIC_BACKEND_URL}/images/${data.imgUrl}`}
-                alt="Live from space album cover"
-            />
+
+            {/* Content Section */}
+            <CardContent sx={{ p: 3 }}>
+                <Link
+                    style={{
+                        textDecoration: "none",
+                        color: "unset"
+                    }}
+                    href={`/track/${convertSlugUrl(data.title)}-${data._id}.html?audio=${data.trackUrl}`}
+                >
+                    <Typography 
+                        variant="h6" 
+                        sx={{ 
+                            color: 'white',
+                            fontWeight: 600,
+                            mb: 1,
+                            lineHeight: 1.3,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                        }}
+                    >
+                        {data.title || 'Untitled Track'}
+                    </Typography>
+                </Link>
+
+                <Typography 
+                    variant="body2" 
+                    sx={{ 
+                        color: 'rgba(255,255,255,0.7)',
+                        mb: 2,
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                    }}
+                >
+                    {data.description || 'No description available'}
+                </Typography>
+
+                {/* Stats Row */}
+                <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    mt: 'auto'
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PlaylistPlayIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.6)' }} />
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                                {formatNumber(data.countPlay)}
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <FavoriteIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.6)' }} />
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                                {formatNumber(data.countLike)}
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Category Badge */}
+                    <Box
+                        sx={{
+                            background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
+                            color: 'white',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5
+                        }}
+                    >
+                        {data.category || 'Unknown'}
+                    </Box>
+                </Box>
+            </CardContent>
         </Card>
     );
 }

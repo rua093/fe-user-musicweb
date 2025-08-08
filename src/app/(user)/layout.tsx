@@ -3,6 +3,7 @@ import AppFooter from '@/components/footer/app.footer';
 import AppHeader from '@/components/header/app.header';
 import type { Metadata } from 'next'
 import Script from 'next/script';
+// import MusicPlayerBar from '@/components/player/MusicPlayerBar';
 
 export const metadata: Metadata = {
   title: 'Tiêu đề from layout',
@@ -58,7 +59,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <AppHeader />
       {children}
       <div style={{ marginBottom: "100px" }}></div>
-      <AppFooter />
+      {/* <AppFooter /> */}
+      {/* <MusicPlayerBar /> */}
       <Script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(test) }}

@@ -7,6 +7,9 @@ import { sendRequest } from '@/utils/api';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { handleLikeTrackAction } from '@/utils/actions/actions';
+import { Box, Typography, IconButton, Paper } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 interface IProps {
     track: ITrackTop | null;
@@ -48,22 +51,102 @@ const LikeTrack = (props: IProps) => {
         router.refresh();
 
     }
+
+    const isLiked = trackLikes?.some(t => t._id === track?._id);
+
     return (
-        <div style={{ margin: "20px 10px 0 10px", display: "flex", justifyContent: "space-between" }}>
-            <Chip
-                onClick={() => handleLikeTrack()}
-                sx={{ borderRadius: "5px" }}
-                size="medium"
-                variant="outlined"
-                color={trackLikes?.some(t => t._id === track?._id) ? "error" : "default"}
-                clickable
-                icon={<FavoriteIcon />} label="Like"
-            />
-            <div style={{ display: "flex", width: "100px", gap: "20px", color: "#999" }}>
-                <span style={{ display: "flex", alignItems: "center" }}><PlayArrowIcon sx={{ fontSize: "20px" }} /> {track?.countPlay}</span>
-                <span style={{ display: "flex", alignItems: "center" }}><FavoriteIcon sx={{ fontSize: "20px" }} /> {track?.countLike}</span>
-            </div>
-        </div>
+        <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 2,
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)'
+        }}>
+            {/* Like Button */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <IconButton
+                    onClick={handleLikeTrack}
+                    sx={{
+                        background: isLiked 
+                            ? 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)' 
+                            : 'rgba(255, 255, 255, 0.1)',
+                        color: isLiked ? 'white' : '#F87171',
+                        border: isLiked 
+                            ? 'none' 
+                            : '2px solid rgba(239, 68, 68, 0.3)',
+                        '&:hover': {
+                            background: isLiked 
+                                ? 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)' 
+                                : 'rgba(239, 68, 68, 0.2)',
+                            transform: 'scale(1.05)',
+                            boxShadow: isLiked 
+                                ? '0 10px 15px -3px rgba(239, 68, 68, 0.4)' 
+                                : '0 5px 15px -3px rgba(239, 68, 68, 0.3)'
+                        },
+                        transition: 'all 0.3s ease',
+                        width: 56,
+                        height: 56
+                    }}
+                >
+                    {isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                </IconButton>
+                
+                <Box>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
+                        {isLiked ? 'Liked' : 'Like this track'}
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
+                        {track?.countLike || 0} likes
+                    </Typography>
+                </Box>
+            </Box>
+
+            {/* Stats */}
+            <Box sx={{ display: 'flex', gap: 3 }}>
+                <Paper sx={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: 2,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                }}>
+                    <PlayArrowIcon sx={{ color: '#60A5FA', fontSize: 20 }} />
+                    <Box>
+                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', display: 'block' }}>
+                            Plays
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#60A5FA', fontWeight: 600 }}>
+                            {track?.countPlay || 0}
+                        </Typography>
+                    </Box>
+                </Paper>
+
+                <Paper sx={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: 2,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                }}>
+                    <FavoriteIcon sx={{ color: '#F87171', fontSize: 20 }} />
+                    <Box>
+                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', display: 'block' }}>
+                            Likes
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#F87171', fontWeight: 600 }}>
+                            {track?.countLike || 0}
+                        </Typography>
+                    </Box>
+                </Paper>
+            </Box>
+        </Box>
     )
 }
 
