@@ -1,6 +1,7 @@
 'use client'
 
-import { useTrackContext } from "@/lib/track.wrapper";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setCurrentTrack, setPlaying } from "@/store/slices/trackSlice";
 import { convertSlugUrl } from "@/utils/api";
 import { Box, Typography, Card, CardContent, CardMedia, IconButton, Chip } from "@mui/material";
 import Link from "next/link";
@@ -17,7 +18,8 @@ interface IProps {
 
 const LikeTrackCard = (props: IProps) => {
     const { track, index } = props;
-    const { currentTrack, setCurrentTrack } = useTrackContext() as ITrackContext;
+    const dispatch = useAppDispatch();
+    const { currentTrack, isPlaying } = useAppSelector(state => state.track);
     const [isHovered, setIsHovered] = useState(false);
 
     const formatTime = (seconds: number) => {
@@ -102,14 +104,16 @@ const LikeTrackCard = (props: IProps) => {
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (track._id === currentTrack._id && currentTrack.isPlaying) {
-                                setCurrentTrack({ ...currentTrack, isPlaying: false, currentTime: 0 });
+                            if (track._id === currentTrack._id && isPlaying) {
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'like' }));
+                                dispatch(setPlaying(false));
                             } else {
-                                setCurrentTrack({ ...track, isPlaying: true, currentTime: 0 });
+                                dispatch(setCurrentTrack({ ...track, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'like' }));
+                                dispatch(setPlaying(true));
                             }
                         }}
                     >
-                        {(track._id === currentTrack._id && currentTrack.isPlaying) ? (
+                        {(track._id === currentTrack._id && isPlaying) ? (
                             <PauseIcon sx={{ fontSize: 24 }} />
                         ) : (
                             <PlayArrowIcon sx={{ fontSize: 24 }} />

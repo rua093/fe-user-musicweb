@@ -41,14 +41,22 @@ export const authOptions: AuthOptions = {
     providers: [
         CredentialsProvider({
             // The name to display on the sign in form (e.g. "Sign in with...")
-            name: "Hỏi Dân IT",
+            name: "MilkyWay Music",
             // `credentials` is used to generate a form on the sign in page.
             // You can specify which fields should be submitted, by adding keys to the `credentials` object.
             // e.g. domain, username, password, 2FA token, etc.
             // You can pass any HTML attribute to the <input> tag through the object.
             credentials: {
-                username: { label: "Tên đăng nhập", type: "text", },
-                password: { label: "Mật khẩu", type: "password" }
+                username: { 
+                    label: "Email", 
+                    type: "email", 
+                    placeholder: "Nhập email của bạn"
+                },
+                password: { 
+                    label: "Mật khẩu", 
+                    type: "password",
+                    placeholder: "Nhập mật khẩu của bạn"
+                }
             },
             async authorize(credentials, req) {
                 // Add logic here to look up the user from the credentials supplied

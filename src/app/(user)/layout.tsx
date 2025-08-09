@@ -1,5 +1,5 @@
 
-import AppFooter from '@/components/footer/app.footer';
+import MusicPlayerBar from '@/components/footer/music-player-bar';
 import AppHeader from '@/components/header/app.header';
 import type { Metadata } from 'next'
 import Script from 'next/script';
@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <AppHeader />
       {children}
       <div style={{ marginBottom: "100px" }}></div>
-      {/* <AppFooter /> */}
+      {/* <MusicPlayerBar /> */}
       {/* <MusicPlayerBar /> */}
       <Script
         type="application/ld+json"

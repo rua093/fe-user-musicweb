@@ -8,7 +8,16 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import './wave.scss';
 import { Tooltip, Box, Typography, Paper, IconButton, Chip } from "@mui/material";
-import { useTrackContext } from "@/lib/track.wrapper";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { 
+  setCurrentTrack, 
+  setWaveControl, 
+  setPlaying, 
+  setCurrentTime, 
+  setDuration, 
+  setSeeking, 
+  setSource 
+} from "@/store/slices/trackSlice";
 import { fetchDefaultImages, sendRequest } from "@/utils/api";
 import CommentTrack from "./comment.track";
 import { useRouter } from "next/navigation";
@@ -20,6 +29,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import StarIcon from '@mui/icons-material/Star';
 
 import LikeTrack from "./like.track";
+
 interface IProps {
     track: ITrackTop | null;
     comments: ITrackComment[]
@@ -35,13 +45,15 @@ const WaveTrack = (props: IProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const hoverRef = useRef<HTMLDivElement>(null);
     const [time, setTime] = useState<string>("0:00");
-    const [duration, setDuration] = useState<string>("0:00");
-    const { currentTrack, setCurrentTrack, setWaveControl } = useTrackContext() as ITrackContext & { setWaveControl?: any };
-    const [internalSeek, setInternalSeek] = useState(false);
+    const [localDuration, setLocalDuration] = useState<string>("0:00");
+    
+    // Redux hooks
+    const dispatch = useAppDispatch();
+    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source } = useAppSelector(state => state.track);
 
     const wavesurferRef = useRef<any>(null);
-    const [isPlaying, setIsPlaying] = useState<boolean>(false);
     const [lastUpdate, setLastUpdate] = useState<number>(0);
+    const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const optionsMemo = useMemo((): Omit<WaveSurferOptions, 'container'> => {
         let gradient, progressGradient;
@@ -76,92 +88,184 @@ const WaveTrack = (props: IProps) => {
             url: `/api?audio=${fileName}`,
         }
     }, []);
+
     const wavesurfer = useWavesurfer(containerRef, optionsMemo);
+    
     useEffect(() => {
         if (wavesurfer) wavesurferRef.current = wavesurfer;
     }, [wavesurfer]);
+
     // Initialize wavesurfer when the container mounts
-    // or any of the props change
     useEffect(() => {
         if (!wavesurfer) return;
-        setIsPlaying(false);
 
         const hover = hoverRef.current!;
         const waveform = containerRef.current!;
-            waveform.addEventListener('pointermove', (e) => (hover.style.width = `${e.offsetX}px`))
+        waveform.addEventListener('pointermove', (e) => (hover.style.width = `${e.offsetX}px`))
 
         const subscriptions = [
-            wavesurfer.on('play', () => setIsPlaying(true)),
-            wavesurfer.on('pause', () => setIsPlaying(false)),
+            wavesurfer.on('play', () => {
+                // Cập nhật isPlaying trong store khi wavesurfer play
+                if (currentTrack._id === track?._id && !isPlaying) {
+                    dispatch(setPlaying(true));
+                    dispatch(setSource('wave'));
+                }
+                setTime(formatTime(wavesurfer.getCurrentTime()));
+            }),
+            wavesurfer.on('pause', () => {
+                // Cập nhật isPlaying trong store khi wavesurfer pause
+                if (currentTrack._id === track?._id && isPlaying) {
+                    dispatch(setPlaying(false));
+                    dispatch(setSource('wave'));
+                }
+                setTime(formatTime(wavesurfer.getCurrentTime()));
+            }),
             wavesurfer.on('decode', (duration) => {
-                setDuration(formatTime(duration));
+                setLocalDuration(formatTime(duration));
+                // Cập nhật duration vào store
+                if (currentTrack._id === track?._id) {
+                    dispatch(setDuration(duration));
+                }
             }),
             wavesurfer.on('timeupdate', (currentTime) => {
                 setTime(formatTime(currentTime));
+                // Chỉ cập nhật currentTime nếu không đang seeking từ player bar và không có tương tác gần đây
+                if (currentTrack._id === track?._id && source !== 'bar' && !isSeeking) {
+                    const now = Date.now();
+                    if (now - lastUpdate > 100 && Math.abs(currentTime - (currentTrack.currentTime ?? 0)) > 0.1) {
+                        dispatch(setCurrentTime(currentTime));
+                        dispatch(setSource('wave'));
+                        setLastUpdate(now);
+                    }
+                }
             }),
-            wavesurfer.once('interaction', () => {
-                wavesurfer.play()
+            wavesurfer.on('interaction', () => {
+                // Khi user tương tác với waveform, tự động play
+                if (track && currentTrack._id === track._id) {
+                    // Chỉ cập nhật các giá trị cần thiết thay vì toàn bộ track
+                    const currentWavesurferTime = wavesurfer.getCurrentTime();
+                    const wavesurferDuration = wavesurfer.getDuration();
+                    
+                    // Cập nhật từng giá trị riêng lẻ để tránh ghi đè state
+                    dispatch(setPlaying(true));
+                    dispatch(setCurrentTime(currentWavesurferTime));
+                    dispatch(setSeeking(false));
+                    // Chỉ set source = 'wave' khi thực sự cần thiết
+                    if (source !== 'wave') {
+                        dispatch(setSource('wave'));
+                    }
+                    
+                    // Chỉ cập nhật duration nếu chưa có hoặc khác biệt
+                    if (wavesurferDuration > 0 && Math.abs(wavesurferDuration - (currentTrack.duration || 0)) > 0.1) {
+                        dispatch(setDuration(wavesurferDuration));
+                    }
+                    
+                    wavesurfer.play();
+                } else if (track && !currentTrack._id) {
+                    // Nếu đây là track đầu tiên, khởi tạo đầy đủ
+                    const currentWavesurferTime = wavesurfer.getCurrentTime();
+                    const wavesurferDuration = wavesurfer.getDuration();
+                    
+                    dispatch(setCurrentTrack({ 
+                        ...track, 
+                        isPlaying: true, 
+                        currentTime: currentWavesurferTime, 
+                        isSeeking: false,
+                        autoPlay: false,
+                        duration: wavesurferDuration > 0 ? wavesurferDuration : (track.duration || 0),
+                        _source: 'wave' 
+                    }));
+                    wavesurfer.play();
+                }
+            }),
+            // Sử dụng any type cho event không được định nghĩa
+            (wavesurfer.on as any)('seek', () => {
+                // Khi seek xong, reset isSeeking flag sau một khoảng thời gian ngắn
+                if (currentTrack._id === track?._id) {
+                    setTimeout(() => {
+                        dispatch(setSeeking(false));
+                        // Reset source về null để cho phép cả wave và bar cập nhật
+                        dispatch(setSource(null));
+                    }, 200); // Tăng thời gian để đảm bảo seek hoàn thành
+                }
             })
         ]
 
         return () => {
             subscriptions.forEach((unsub) => unsub())
-        }
-    }, [wavesurfer])
-
-    // Đăng ký callback điều khiển cho AppFooter
-    useEffect(() => {
-        if (!wavesurfer || !setWaveControl) return;
-        setWaveControl({
-            play: () => wavesurfer.play(),
-            pause: () => wavesurfer.pause(),
-            seek: (time: number) => {
-                const duration = wavesurfer.getDuration();
-                if (duration) wavesurfer.seekTo(time / duration);
+            // Clear seek timeout on cleanup
+            if (seekTimeoutRef.current) {
+                clearTimeout(seekTimeoutRef.current);
             }
-        });
-        return () => setWaveControl(undefined);
-    }, [wavesurfer, setWaveControl]);
+        }
+    }, [wavesurfer, currentTrack, track, lastUpdate, dispatch, isPlaying, isSeeking, source])
 
-    // Helper để so sánh track
-    const isTrackStateChanged = (next: IShareTrack, prev: IShareTrack) => {
-        return (
-            next._id !== prev._id ||
-            next.isPlaying !== prev.isPlaying ||
-            Math.abs((next.currentTime ?? 0) - (prev.currentTime ?? 0)) > 0.1
-        );
-    };
+    // Đăng ký callback điều khiển cho MusicPlayerBar
+    useEffect(() => {
+        if (!wavesurfer) return;
+        
+        dispatch(setWaveControl({
+            play: () => {
+                if (wavesurfer && !wavesurfer.isPlaying()) {
+                    wavesurfer.play();
+                }
+            },
+            pause: () => {
+                if (wavesurfer && wavesurfer.isPlaying()) {
+                    wavesurfer.pause();
+                }
+            },
+            seek: (time: number) => {
+                if (wavesurfer) {
+                    // Sử dụng duration từ store thay vì wavesurfer để đảm bảo chính xác
+                    const storeDuration = currentTrack.duration || track?.duration || 0;
+                    const wavesurferDuration = wavesurfer.getDuration();
+                    const duration = storeDuration > 0 ? storeDuration : wavesurferDuration;
+                    
 
-    // On play button click: chỉ gọi play/pause, không set isPlaying thủ công
+                    
+                    if (duration && duration > 0) {
+                        // Clear any existing seek timeout
+                        if (seekTimeoutRef.current) {
+                            clearTimeout(seekTimeoutRef.current);
+                        }
+                        
+                        // Set isSeeking = true trước khi seek
+                        if (currentTrack._id === track?._id) {
+                            dispatch(setSeeking(true));
+                            dispatch(setSource('bar'));
+                            // Cập nhật currentTime ngay lập tức để UI phản hồi
+                            dispatch(setCurrentTime(time));
+                        }
+                        
+                        // Debounce the actual seek operation
+                        seekTimeoutRef.current = setTimeout(() => {
+                            // Thực hiện seek
+                            wavesurfer.seekTo(time / duration);
+                        }, 50);
+                    }
+                }
+            }
+        }));
+    }, [wavesurfer, dispatch, currentTrack, track]);
+
+    // On play button click: cập nhật store và gọi wavesurfer
     const onPlayClick = useCallback(() => {
         if (!track || !wavesurferRef.current) return;
         if (!isPlaying) {
+            // Cập nhật store trước
+            dispatch(setPlaying(true));
+            dispatch(setSource('wave'));
+            // Sau đó gọi wavesurfer
             wavesurferRef.current.play();
         } else {
+            // Cập nhật store trước
+            dispatch(setPlaying(false));
+            dispatch(setSource('wave'));
+            // Sau đó gọi wavesurfer
             wavesurferRef.current.pause();
         }
-    }, [track, isPlaying]);
-
-    // Lắng nghe sự kiện play/pause thực tế từ wavesurfer để cập nhật isPlaying vào context
-    useEffect(() => {
-        if (!wavesurferRef.current || !track) return;
-        const onPlay = () => {
-            if (currentTrack._id === track._id && !currentTrack.isPlaying) {
-                setCurrentTrack({ ...currentTrack, isPlaying: true, _source: 'wave' });
-            }
-        };
-        const onPause = () => {
-            if (currentTrack._id === track._id && currentTrack.isPlaying) {
-                setCurrentTrack({ ...currentTrack, isPlaying: false, _source: 'wave' });
-            }
-        };
-        (wavesurferRef.current.on as any)('play', onPlay);
-        (wavesurferRef.current.on as any)('pause', onPause);
-        return () => {
-            (wavesurferRef.current.un as any)('play', onPlay);
-            (wavesurferRef.current.un as any)('pause', onPause);
-        };
-    }, [currentTrack, setCurrentTrack, track]);
+    }, [track, isPlaying, dispatch]);
 
     const formatTime = (seconds: number) => {
         const minutes = Math.floor(seconds / 60)
@@ -171,99 +275,68 @@ const WaveTrack = (props: IProps) => {
     }
 
     const calLeft = (moment: number) => {
-        const hardCodeDuration = wavesurfer?.getDuration() ?? 0;
-        const percent = (moment / hardCodeDuration) * 100;
+        // Sử dụng duration từ store thay vì wavesurfer để đảm bảo chính xác
+        const storeDuration = currentTrack.duration || track?.duration || 0;
+        const wavesurferDuration = wavesurfer?.getDuration() ?? 0;
+        const duration = storeDuration > 0 ? storeDuration : wavesurferDuration;
+        
+        if (duration <= 0) return '0%';
+        const percent = (moment / duration) * 100;
         return `${percent}%`
     }
 
+    // Đồng bộ với store khi currentTrack thay đổi
     useEffect(() => {
         if (!wavesurfer || !track) return;
-        // Chỉ update UI/audio khi _source !== 'wave'
-        if (currentTrack._id === track._id && currentTrack._source !== 'wave') {
-            if (currentTrack.isPlaying && !wavesurfer.isPlaying()) {
+        
+        // Nếu track mới được load
+        if (currentTrack._id === track._id && source !== 'wave') {
+            // Sync isPlaying
+            if (isPlaying && !wavesurfer.isPlaying()) {
                 wavesurfer.play();
-            } else if (!currentTrack.isPlaying && wavesurfer.isPlaying()) {
+            } else if (!isPlaying && wavesurfer.isPlaying()) {
                 wavesurfer.pause();
             }
-            // Đồng bộ progress hai chiều
-            if (typeof currentTrack.currentTime === 'number' && !isNaN(currentTrack.currentTime)) {
-                const duration = wavesurfer.getDuration();
-                if (duration && Math.abs(wavesurfer.getCurrentTime() - currentTrack.currentTime) > 0.5 && !internalSeek) {
-                    wavesurfer.seekTo(currentTrack.currentTime / duration);
-                    setInternalSeek(true);
+            
+            // Sync currentTime (chỉ khi không đang seeking từ player bar)
+            if (typeof currentTime === 'number' && !isNaN(currentTime) && source !== 'bar') {
+                // Sử dụng duration từ store thay vì wavesurfer để đảm bảo chính xác
+                const storeDuration = currentTrack.duration || track?.duration || 0;
+                const wavesurferDuration = wavesurfer.getDuration();
+                const duration = storeDuration > 0 ? storeDuration : wavesurferDuration;
+                
+                if (duration && duration > 0 && Math.abs(wavesurfer.getCurrentTime() - currentTime) > 0.5) {
+                    wavesurfer.seekTo(currentTime / duration);
                 }
             }
-        } else {
+        } else if (currentTrack._id !== track._id && wavesurfer.isPlaying()) {
             // Nếu chuyển sang track khác, pause wavesurfer này
-            if (wavesurfer.isPlaying()) wavesurfer.pause();
+            wavesurfer.pause();
         }
-    }, [currentTrack, wavesurfer, track, internalSeek]);
+    }, [currentTrack, wavesurfer, track, source, isPlaying, currentTime]);
 
-    // Reset cờ sau khi seek xong
+    // Khi track mới được load
     useEffect(() => {
-        if (internalSeek) {
-            const t = setTimeout(() => setInternalSeek(false), 200);
-            return () => clearTimeout(t);
+        if (track?._id && !currentTrack?._id) {
+            // Khởi tạo track với duration từ track data, không reset currentTime
+            dispatch(setCurrentTrack({ 
+                ...track, 
+                isPlaying: false, 
+                currentTime: 0, 
+                isSeeking: false,
+                autoPlay: false,
+                duration: track.duration || 0,
+                _source: undefined
+            }));
         }
-    }, [internalSeek]);
+    }, [track, currentTrack, dispatch]);
 
+    // Khi track mới được load và autoPlay = true
     useEffect(() => {
-        if (track?._id && !currentTrack?._id)
-            setCurrentTrack({ ...track, isPlaying: false, currentTime: 0 })
-    }, [track])
-
-    // Khi tua trên waveform, cập nhật context nếu khác biệt
-    useEffect(() => {
-        if (!wavesurferRef.current || !track) return;
-        const onSeek = () => {
-            if (currentTrack._id === track._id) {
-                const newTime = wavesurferRef.current.getCurrentTime();
-                if (Math.abs(newTime - (currentTrack.currentTime ?? 0)) > 0.1) {
-                    setCurrentTrack({ ...currentTrack, currentTime: newTime, _source: 'wave' });
-                }
-            }
-        };
-        (wavesurferRef.current.on as any)('seek', onSeek);
-        return () => {
-            (wavesurferRef.current.un as any)('seek', onSeek);
-        };
-    }, [currentTrack, setCurrentTrack, track]);
-
-    // Khi sóng chạy (timeupdate), cập nhật currentTime cho context (debounce)
-    useEffect(() => {
-        if (!wavesurferRef.current || !track) return;
-        const onTimeUpdate = (currentTime: number) => {
-            if (currentTrack._id === track._id) {
-                const now = Date.now();
-                if (now - lastUpdate > 200 && Math.abs(currentTime - (currentTrack.currentTime ?? 0)) > 0.1) {
-                    setCurrentTrack({ ...currentTrack, currentTime, _source: 'wave' });
-                    setLastUpdate(now);
-                }
-            }
-        };
-        (wavesurferRef.current.on as any)('timeupdate', onTimeUpdate);
-        return () => {
-            (wavesurferRef.current.un as any)('timeupdate', onTimeUpdate);
-        };
-    }, [currentTrack, setCurrentTrack, track, lastUpdate]);
-
-    // Khi nhận context từ player bar, chỉ update wavesurfer nếu _source !== 'wave'
-    useEffect(() => {
-        if (!wavesurferRef.current || !track) return;
-        if (currentTrack._id === track._id && currentTrack._source !== 'wave') {
-            if (currentTrack.isPlaying && !wavesurferRef.current.isPlaying()) {
-                wavesurferRef.current.play();
-            } else if (!currentTrack.isPlaying && wavesurferRef.current.isPlaying()) {
-                wavesurferRef.current.pause();
-            }
-            if (typeof currentTrack.currentTime === 'number' && !isNaN(currentTrack.currentTime)) {
-                const duration = wavesurferRef.current.getDuration();
-                if (duration && Math.abs(wavesurferRef.current.getCurrentTime() - currentTrack.currentTime) > 0.5) {
-                    wavesurferRef.current.seekTo(currentTrack.currentTime / duration);
-                }
-            }
+        if (track?._id && currentTrack?._id === track._id && autoPlay && !isPlaying && wavesurfer) {
+            wavesurfer.play();
         }
-    }, [currentTrack, track]);
+    }, [autoPlay, track, currentTrack, wavesurfer, isPlaying]);
 
     const handleIncreaseView = async () => {
         if (firstViewRef.current) {
@@ -384,14 +457,14 @@ const WaveTrack = (props: IProps) => {
                             </Typography>
                         </Box>
                             
-                            {/* Stats */}
+                        {/* Stats */}
                         <Box sx={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 1,
                             alignItems: 'center'
                         }}>
-                                <Chip 
+                            <Chip 
                                 icon={<PlayArrowIcon2 />}
                                 label={track?.countPlay || 0}
                                 sx={{
@@ -400,9 +473,9 @@ const WaveTrack = (props: IProps) => {
                                     border: '1px solid rgba(59, 130, 246, 0.3)',
                                     '& .MuiChip-icon': { color: '#60A5FA' }
                                 }}
-                                />
-                                <Chip 
-                                    icon={<FavoriteIcon />} 
+                            />
+                            <Chip 
+                                icon={<FavoriteIcon />} 
                                 label={track?.countLike || 0}
                                 sx={{
                                     background: 'rgba(239, 68, 68, 0.2)',
@@ -410,9 +483,9 @@ const WaveTrack = (props: IProps) => {
                                     border: '1px solid rgba(239, 68, 68, 0.3)',
                                     '& .MuiChip-icon': { color: '#F87171' }
                                 }}
-                                />
-                            </Box>
-                            </Box>
+                            />
+                        </Box>
+                    </Box>
 
                     {/* Waveform Container */}
                     <Paper sx={{
@@ -447,51 +520,51 @@ const WaveTrack = (props: IProps) => {
                                 color: "#F59E0B",
                                 borderRadius: "20px",
                                 fontWeight: "bold"
-                            }}>{duration}</div>
-                                <div ref={hoverRef} className="hover-wave"></div>
-                                <div className="overlay"
-                                    style={{
-                                        position: "absolute",
-                                        height: "30px",
-                                        width: "100%",
-                                        bottom: "0",
+                            }}>{localDuration}</div>
+                            <div ref={hoverRef} className="hover-wave"></div>
+                            <div className="overlay"
+                                style={{
+                                    position: "absolute",
+                                    height: "30px",
+                                    width: "100%",
+                                    bottom: "0",
                                     backdropFilter: "brightness(0.3)"
-                                    }}
-                                ></div>
+                                }}
+                            ></div>
                             <div className="comments"
                                 style={{ position: "relative" }}
                             >
                                 {
                                     comments?.map(item => {
                                         return (
-                                        <Tooltip title={item.content} arrow key={item._id}>
+                                            <Tooltip title={item.content} arrow key={item._id}>
                                                 <Image
-                                                onPointerMove={(e) => {
-                                                    const hover = hoverRef.current!;
-                                                    hover.style.width = calLeft(item.moment)
-                                                }}
-                                                src={fetchDefaultImages(item.user.type)}
-                                                alt="user comment"
+                                                    onPointerMove={(e) => {
+                                                        const hover = hoverRef.current!;
+                                                        hover.style.width = calLeft(item.moment)
+                                                    }}
+                                                    src={fetchDefaultImages(item.user.type)}
+                                                    alt="user comment"
                                                     height={24}
                                                     width={24}
                                                     style={{
-                                                    position: "absolute",
+                                                        position: "absolute",
                                                         top: 91,
-                                                    zIndex: 20,
-                                                    left: calLeft(item.moment),
+                                                        zIndex: 20,
+                                                        left: calLeft(item.moment),
                                                         borderRadius: '50%',
                                                         border: '2px solid #F59E0B',
                                                         boxShadow: '0 0 10px rgba(245, 158, 11, 0.5)'
-                                                }}
-                                            />
-                                        </Tooltip>
+                                                    }}
+                                                />
+                                            </Tooltip>
                                         )
                                     })
                                 }
                             </div>
                         </Box>
                     </Paper>
-                    </Box>
+                </Box>
 
                 {/* Right Section - Album Art */}
                 <Box sx={{
@@ -511,9 +584,9 @@ const WaveTrack = (props: IProps) => {
                         position: 'relative',
                         overflow: 'hidden'
                     }}>
-                            {track?.imgUrl ? (
-                                <Image
-                                    src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/images/${track?.imgUrl}`}
+                        {track?.imgUrl ? (
+                            <Image
+                                src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/images/${track?.imgUrl}`}
                                 width={280}
                                 height={280}
                                 alt="album cover"
@@ -522,21 +595,21 @@ const WaveTrack = (props: IProps) => {
                                     objectFit: 'cover',
                                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                                 }}
-                                />
-                            ) : (
-                                <Box sx={{
+                            />
+                        ) : (
+                            <Box sx={{
                                 width: 280,
                                 height: 280,
                                 background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
                                 borderRadius: '16px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
                                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                                }}>
+                            }}>
                                 <MusicNoteIcon sx={{ fontSize: 80, color: 'rgba(255, 255, 255, 0.7)' }} />
-                                </Box>
-                            )}
+                            </Box>
+                        )}
                         
                         {/* Floating stars effect */}
                         <Box sx={{
@@ -554,7 +627,7 @@ const WaveTrack = (props: IProps) => {
                             animation: 'twinkle 2s ease-in-out infinite 0.5s'
                         }}>
                             <StarIcon sx={{ fontSize: 16, color: '#8B5CF6' }} />
-                    </Box>
+                        </Box>
                     </Paper>
 
                     {/* Uploader Info */}

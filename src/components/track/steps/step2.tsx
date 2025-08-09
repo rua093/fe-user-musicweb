@@ -51,7 +51,7 @@ const VisuallyHiddenInput = styled('input')({
     width: 1,
 });
 
-function InputFileUpload(props: any) {
+const InputFileUpload = React.forwardRef<HTMLButtonElement, { setInfo: any; info: any }>((props, ref) => {
     const { setInfo, info } = props;
     const { data: session } = useSession();
     const toast = useToast()
@@ -80,6 +80,7 @@ function InputFileUpload(props: any) {
 
     return (
         <Button
+            ref={ref}
             onChange={(e) => {
                 const event = e.target as HTMLInputElement;
                 if (event.files) {
@@ -91,7 +92,9 @@ function InputFileUpload(props: any) {
             <VisuallyHiddenInput type="file" />
         </Button>
     );
-}
+});
+
+InputFileUpload.displayName = 'InputFileUpload';
 
 
 interface IProps {

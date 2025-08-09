@@ -13,6 +13,8 @@ declare global {
         "duration": number;
         "countLike": number;
         "countPlay": number;
+        "genre"?: string;
+        "language"?: string;
         "uploader": {
             "_id": string;
             "email": string;
@@ -53,20 +55,14 @@ declare global {
     }
 
     interface IShareTrack extends ITrackTop {
-        isPlaying: boolean;
-        currentTime: number;
-        _source?: 'wave' | 'bar';
+        isPlaying?: boolean;
+        currentTime?: number;
+        isSeeking?: boolean;
+        autoPlay?: boolean;
+        _source?: 'wave' | 'bar' | 'profile' | 'like' | 'playlist';
     }
 
-    interface ITrackContext {
-        currentTrack: IShareTrack;
-        setCurrentTrack: (v: IShareTrack) => void;
-        waveControl?: {
-            play: () => void;
-            pause: () => void;
-            seek: (time: number) => void;
-        };
-    }
+
 
     interface ITrackComment {
         "_id": string;

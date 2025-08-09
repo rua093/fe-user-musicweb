@@ -11,7 +11,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
-import { useTrackContext } from '@/lib/track.wrapper';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setCurrentTrack, setPlaying } from '@/store/slices/trackSlice';
 import Link from 'next/link';
 import { convertSlugUrl } from '@/utils/api';
 
@@ -22,7 +23,8 @@ interface IProps {
 const ProfileTracks = (props: IProps) => {
     const { data } = props;
     const theme = useTheme();
-    const { currentTrack, setCurrentTrack } = useTrackContext() as ITrackContext;
+    const dispatch = useAppDispatch();
+    const { currentTrack, isPlaying } = useAppSelector(state => state.track);
 
     const formatDuration = (seconds: number) => {
         if (!seconds || seconds === 0) return '0:00';
@@ -101,14 +103,16 @@ const ProfileTracks = (props: IProps) => {
                             e.preventDefault();
                             e.stopPropagation();
                             if (data._id !== currentTrack._id || 
-                                (data._id === currentTrack._id && currentTrack.isPlaying === false)) {
-                                setCurrentTrack({ ...data, isPlaying: true, currentTime: 0 });
+                                (data._id === currentTrack._id && !isPlaying)) {
+                                dispatch(setCurrentTrack({ ...data, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
+                                dispatch(setPlaying(true));
                             } else {
-                                setCurrentTrack({ ...data, isPlaying: false, currentTime: 0 });
+                                dispatch(setCurrentTrack({ ...data, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
+                                dispatch(setPlaying(false));
                             }
                         }}
                     >
-                        {(data._id === currentTrack._id && currentTrack.isPlaying === true) ? (
+                        {(data._id === currentTrack._id && isPlaying === true) ? (
                             <PauseIcon sx={{ fontSize: 28 }} />
                         ) : (
                             <PlayArrowIcon sx={{ fontSize: 28 }} />

@@ -3,9 +3,10 @@
 import ThemeRegistry from '@/components/theme-registry/theme.registry';
 import NextAuthWrapper from '@/lib/next.auth.wrapper';
 import NProgressWrapper from '@/lib/nprogress.wrapper';
-import { TrackContextProvider } from '@/lib/track.wrapper';
+import { ReduxProvider } from '@/store/provider';
 import { ToastProvider } from '@/utils/toast';
-import AppFooter from '@/components/footer/app.footer';
+import MusicPlayerBar from '@/components/footer/music-player-bar';
+import '@/styles/nextauth-custom.css';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,10 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NProgressWrapper>
             <NextAuthWrapper>
               <ToastProvider>
-                <TrackContextProvider>
+                <ReduxProvider>
                   {children}
-                  <AppFooter />
-                </TrackContextProvider>
+                  <MusicPlayerBar />
+                </ReduxProvider>
               </ToastProvider>
             </NextAuthWrapper>
           </NProgressWrapper>

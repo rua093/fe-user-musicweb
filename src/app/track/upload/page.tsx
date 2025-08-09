@@ -2,13 +2,42 @@ import UploadTabs from "@/components/track/upload.tabs";
 import { Container, Box, Typography } from "@mui/material";
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import type { Metadata } from 'next';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/auth.options";
 
 export const metadata: Metadata = {
     title: 'Upload Track - MilkyWay',
     description: 'Chia sẻ âm nhạc của bạn với vũ trụ âm nhạc MilkyWay',
 }
 
-const UploadPage = () => {
+const UploadPage = async () => {
+    const session = await getServerSession(authOptions);
+
+    // If no session, redirect to login
+    if (!session) {
+        return (
+            <Box sx={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%)'
+            }}>
+                <Box sx={{ textAlign: 'center', p: 4 }}>
+                    <Typography variant="h4" sx={{ color: 'white', mb: 2 }}>
+                        Truy cập bị từ chối
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)', mb: 3 }}>
+                        Vui lòng đăng nhập để tải lên track
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                        Trang này yêu cầu đăng nhập để truy cập
+                    </Typography>
+                </Box>
+            </Box>
+        );
+    }
+
     return (
         <Box sx={{ minHeight: '100vh', background: '#000' }}>
             {/* Header với theme vũ trụ */}
