@@ -7,6 +7,7 @@ import {
   setDuration, 
   setSeeking, 
   setSource,
+  setAudioControl,
   playTrack,
   pauseTrack,
   seekTrack
@@ -15,7 +16,6 @@ import { useHasMounted } from '@/utils/customHook';
 import { Container, Box, Typography, Avatar, IconButton, Tooltip, Stack, Slider, Chip, Divider } from '@mui/material';
 import AppBar from '@mui/material/AppBar';
 import { useRef, useEffect, useState } from 'react';
-import AudioPlayer from 'react-h5-audio-player';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
@@ -28,15 +28,14 @@ import RepeatIcon from '@mui/icons-material/Repeat';
 import RepeatOneIcon from '@mui/icons-material/RepeatOne';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import 'react-h5-audio-player/lib/styles.css';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 const MusicPlayerBar = () => {
     const hasMounted = useHasMounted();
-    const playerRef = useRef<any>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const dispatch = useAppDispatch();
-    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source, waveControl } = useAppSelector(state => state.track);
+    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source } = useAppSelector(state => state.track);
     const [volume, setVolume] = useState(50);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
@@ -45,30 +44,28 @@ const MusicPlayerBar = () => {
     const [showQueue, setShowQueue] = useState(false);
     const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+
+
     // Khi user thao tác play/pause trên player bar
     const handlePlay = () => {
-        if (!isPlaying) {
-            // Cập nhật store trước
+        if (!isPlaying && audioRef.current) {
+            audioRef.current.play();
             dispatch(setPlaying(true));
             dispatch(setSource('bar'));
-            // Sau đó gọi wavesurfer
-            waveControl?.play && waveControl.play();
         }
     };
 
     const handlePause = () => {
-        if (isPlaying) {
-            // Cập nhật store trước
+        if (isPlaying && audioRef.current) {
+            audioRef.current.pause();
             dispatch(setPlaying(false));
             dispatch(setSource('bar'));
-            // Sau đó gọi wavesurfer
-            waveControl?.pause && waveControl.pause();
         }
     };
 
     // Handler cho seek từ player bar
     const handleSeek = (time: number) => {
-        if (Math.abs((currentTime ?? 0) - time) > 0.1) {
+        if (Math.abs((currentTime ?? 0) - time) > 0.1 && audioRef.current) {
             // Clear any existing seek timeout
             if (seekTimeoutRef.current) {
                 clearTimeout(seekTimeoutRef.current);
@@ -80,11 +77,8 @@ const MusicPlayerBar = () => {
             // Cập nhật currentTime ngay lập tức để UI phản hồi
             dispatch(setCurrentTime(time));
             
-            // Debounce the actual seek operation
-            seekTimeoutRef.current = setTimeout(() => {
-            // Gọi wavesurfer seek
-            waveControl?.seek && waveControl.seek(time);
-            }, 50);
+            // Thực hiện seek trên audio element
+            audioRef.current.currentTime = time;
         }
     };
 
@@ -103,8 +97,8 @@ const MusicPlayerBar = () => {
     const handleVolumeChange = (event: Event, newValue: number | number[]) => {
         const newVolume = newValue as number;
         setVolume(newVolume);
-        if (playerRef.current?.audio?.current) {
-            playerRef.current.audio.current.volume = newVolume / 100;
+        if (audioRef.current) {
+            audioRef.current.volume = newVolume / 100;
         }
     };
 
@@ -144,34 +138,166 @@ const MusicPlayerBar = () => {
         return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     };
 
-    // Đồng bộ với store khi currentTrack thay đổi
+    // Audio event handlers
     useEffect(() => {
-        if (!playerRef.current?.audio?.current) return;
-        const audio = playerRef.current.audio.current;
-        
-        // Sync currentTime (chỉ khi không đang seeking từ player bar)
-        if (typeof currentTime === 'number' && source !== 'bar' && Math.abs(audio.currentTime - currentTime) > 0.1) {
-            audio.currentTime = currentTime;
-        }
-        
-        // Sync isPlaying
-        if (source !== 'bar') {
-            if (isPlaying === false && !audio.paused) {
-                audio.pause();
-            }
-            if (isPlaying === true && audio.paused) {
-                audio.play();
-            }
-        }
-    }, [currentTrack, currentTime, isPlaying, source]);
+        if (!audioRef.current) return;
 
-    // Reset isSeeking flag khi seek xong
+        const audio = audioRef.current;
+
+        const handleLoadedMetadata = () => {
+            dispatch(setDuration(audio.duration));
+        };
+
+        const handleTimeUpdate = () => {
+            if (!isSeeking) {
+                dispatch(setCurrentTime(audio.currentTime));
+                dispatch(setSource('bar'));
+            }
+        };
+
+        const handlePlay = () => {
+            if (source !== 'bar') {
+                dispatch(setPlaying(true));
+                dispatch(setSource('bar'));
+            }
+        };
+
+        const handlePause = () => {
+            if (source !== 'bar') {
+                dispatch(setPlaying(false));
+                dispatch(setSource('bar'));
+            }
+        };
+
+        const handleEnded = () => {
+            // Handle repeat modes
+            if (repeatMode === 'one') {
+                audio.currentTime = 0;
+                audio.play();
+            } else if (repeatMode === 'all') {
+                // TODO: Play next track in queue
+                console.log('Play next track');
+            } else {
+                dispatch(setPlaying(false));
+            }
+        };
+
+        const handleSeeked = () => {
+            dispatch(setSeeking(false));
+        };
+
+        // Add event listeners
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+        audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('seeked', handleSeeked);
+
+        return () => {
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
+            audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('seeked', handleSeeked);
+        };
+    }, [dispatch, source, isSeeking, repeatMode]);
+
+    // Register audio control with Redux store
+    useEffect(() => {
+        if (!audioRef.current) return;
+        
+        dispatch(setAudioControl({
+            play: () => {
+                if (audioRef.current && audioRef.current.paused) {
+                    audioRef.current.play();
+                }
+            },
+            pause: () => {
+                if (audioRef.current && !audioRef.current.paused) {
+                    audioRef.current.pause();
+                }
+            },
+            seek: (time: number) => {
+                if (audioRef.current) {
+                    audioRef.current.currentTime = time;
+                }
+            },
+            setVolume: (vol: number) => {
+                if (audioRef.current) {
+                    audioRef.current.volume = vol / 100;
+                }
+            }
+        }));
+    }, [dispatch]);
+
+    // Sync with store when currentTrack changes
+    useEffect(() => {
+        if (!audioRef.current || !currentTrack._id) return;
+
+        const audio = audioRef.current;
+        
+        // Update audio source when track changes
+        if (currentTrack.trackUrl) {
+            const audioUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracks/${currentTrack.trackUrl}`;
+            console.log('🔍 DEBUG: Setting audio source:', audioUrl);
+            audio.src = audioUrl;
+            audio.load();
+            
+            // Reset currentTime when track changes
+            dispatch(setCurrentTime(0));
+        } else {
+            console.log('🔍 DEBUG: No trackUrl available:', currentTrack);
+        }
+
+        // Set volume
+        audio.volume = volume / 100;
+
+        // Auto play if needed
+        if (autoPlay) {
+            audio.play();
+        }
+    }, [currentTrack._id, currentTrack.trackUrl, volume, autoPlay, dispatch]);
+
+    // Sync currentTime from store (when seeking from other components)
+    useEffect(() => {
+        if (!audioRef.current || source === 'bar') return;
+        
+        const audio = audioRef.current;
+        if (Math.abs(audio.currentTime - (currentTime || 0)) > 0.1) {
+            audio.currentTime = currentTime || 0;
+        }
+    }, [currentTime, source]);
+
+    // Sync isPlaying from store
+    useEffect(() => {
+        if (!audioRef.current || source === 'bar') return;
+        
+        const audio = audioRef.current;
+        if (isPlaying && audio.paused) {
+            audio.play();
+        } else if (!isPlaying && !audio.paused) {
+            audio.pause();
+        }
+    }, [isPlaying, source]);
+
+    // Sync currentTime from store (when seeking from wave or other components)
+    useEffect(() => {
+        if (!audioRef.current || source === 'bar') return;
+        
+        const audio = audioRef.current;
+        if (Math.abs(audio.currentTime - (currentTime || 0)) > 0.1) {
+            audio.currentTime = currentTime || 0;
+        }
+    }, [currentTime, source]);
+
+    // Reset isSeeking flag when seek completes
     useEffect(() => {
         if (isSeeking) {
             const timer = setTimeout(() => {
-                // Chỉ reset nếu vẫn đang seeking và không có thay đổi mới
                 dispatch(setSeeking(false));
-            }, 300); // Tăng thời gian để đảm bảo seek hoàn thành
+            }, 300);
             return () => clearTimeout(timer);
         }
     }, [isSeeking, dispatch]);
@@ -185,19 +311,18 @@ const MusicPlayerBar = () => {
         };
     }, []);
 
-    // Nếu đổi bài hát (track._id khác), cập nhật context để đồng bộ info
-    useEffect(() => {
-        if (!playerRef.current?.audio?.current) return;
-        if (currentTrack._id && currentTrack._id !== playerRef.current?.audio?.current.dataset.trackId) {
-            // Cập nhật info cho player bar nếu cần
-            playerRef.current.audio.current.dataset.trackId = currentTrack._id;
-        }
-    }, [currentTrack._id]);
-
     if (!hasMounted) return (<></>)
 
     return (
         <>
+            {/* Hidden Audio Element - Always create */}
+            <audio 
+                ref={audioRef}
+                id="main-audio-player"
+                preload="metadata"
+                style={{ display: 'none' }}
+            />
+            
             {currentTrack._id &&
                 <AppBar position="fixed"
                     sx={{

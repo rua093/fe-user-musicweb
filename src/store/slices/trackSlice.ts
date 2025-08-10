@@ -10,10 +10,11 @@ export interface ITrackState {
   autoPlay: boolean;
   source: 'wave' | 'bar' | 'profile' | 'like' | 'playlist' | null;
   volume: number;
-  waveControl?: {
+  audioControl?: {
     play: () => void;
     pause: () => void;
     seek: (time: number) => void;
+    setVolume: (volume: number) => void;
   };
   loading: boolean;
   error: string | null;
@@ -54,7 +55,7 @@ const initialState: ITrackState = {
   autoPlay: false,
   source: null,
   volume: 50,
-  waveControl: undefined,
+  audioControl: undefined,
   loading: false,
   error: null,
 };
@@ -71,10 +72,10 @@ export const playTrack = createAsyncThunk(
   'track/playTrack',
   async (_, { getState, dispatch }) => {
     const state = getState() as { track: ITrackState };
-    const { waveControl } = state.track;
+    const { audioControl } = state.track;
     
-    if (waveControl?.play) {
-      waveControl.play();
+    if (audioControl?.play) {
+      audioControl.play();
     }
     
     return true;
@@ -85,10 +86,10 @@ export const pauseTrack = createAsyncThunk(
   'track/pauseTrack',
   async (_, { getState, dispatch }) => {
     const state = getState() as { track: ITrackState };
-    const { waveControl } = state.track;
+    const { audioControl } = state.track;
     
-    if (waveControl?.pause) {
-      waveControl.pause();
+    if (audioControl?.pause) {
+      audioControl.pause();
     }
     
     return false;
@@ -99,13 +100,13 @@ export const seekTrack = createAsyncThunk(
   'track/seekTrack',
   async (time: number, { getState, dispatch }) => {
     const state = getState() as { track: ITrackState };
-    const { waveControl } = state.track;
+    const { audioControl } = state.track;
     
     // Set seeking state before seeking
     dispatch(setSeeking(true));
     
-    if (waveControl?.seek) {
-      waveControl.seek(time);
+    if (audioControl?.seek) {
+      audioControl.seek(time);
     }
     
     return time;
@@ -117,8 +118,8 @@ const trackSlice = createSlice({
   name: 'track',
   initialState,
   reducers: {
-    setWaveControl: (state, action: PayloadAction<ITrackState['waveControl']>) => {
-      state.waveControl = action.payload;
+    setAudioControl: (state, action: PayloadAction<ITrackState['audioControl']>) => {
+      state.audioControl = action.payload;
     },
     setPlaying: (state, action: PayloadAction<boolean>) => {
       state.isPlaying = action.payload;
@@ -215,7 +216,7 @@ const trackSlice = createSlice({
 });
 
 export const {
-  setWaveControl,
+  setAudioControl,
   setPlaying,
   setCurrentTime,
   setDuration,

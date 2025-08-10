@@ -24,7 +24,7 @@ const ProfileTracks = (props: IProps) => {
     const { data } = props;
     const theme = useTheme();
     const dispatch = useAppDispatch();
-    const { currentTrack, isPlaying } = useAppSelector(state => state.track);
+    const { currentTrack, isPlaying, audioControl } = useAppSelector(state => state.track);
 
     const formatDuration = (seconds: number) => {
         if (!seconds || seconds === 0) return '0:00';
@@ -106,9 +106,13 @@ const ProfileTracks = (props: IProps) => {
                                 (data._id === currentTrack._id && !isPlaying)) {
                                 dispatch(setCurrentTrack({ ...data, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
                                 dispatch(setPlaying(true));
+                                // Sử dụng audioControl để phát audio
+                                audioControl?.play && audioControl.play();
                             } else {
                                 dispatch(setCurrentTrack({ ...data, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
                                 dispatch(setPlaying(false));
+                                // Sử dụng audioControl để pause audio
+                                audioControl?.pause && audioControl.pause();
                             }
                         }}
                     >

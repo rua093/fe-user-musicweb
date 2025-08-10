@@ -25,6 +25,11 @@ export const useWavesurfer = (
         const ws = WaveSurfer.create({
             ...options,
             container: containerRef.current,
+            // Force visualization only mode
+            backend: 'WebAudio',
+            mediaControls: false,
+            autoplay: false,
+            normalize: false,
             renderFunction: (channels, ctx) => {
                 const { width, height } = ctx.canvas;
                 const barWidth = options.barWidth || 2;

@@ -18,7 +18,7 @@ interface IProps {
 const PlaylistTrackList = (props: IProps) => {
     const { tracks } = props;
     const dispatch = useAppDispatch();
-    const { currentTrack, isPlaying } = useAppSelector(state => state.track);
+    const { currentTrack, isPlaying, audioControl } = useAppSelector(state => state.track);
     const [expanded, setExpanded] = useState(false);
 
     const formatTime = (seconds: number) => {
@@ -134,9 +134,13 @@ const PlaylistTrackList = (props: IProps) => {
                             if (track._id === currentTrack._id && isPlaying) {
                                 dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'playlist' }));
                                 dispatch(setPlaying(false));
+                                // Sử dụng audioControl để pause audio
+                                audioControl?.pause && audioControl.pause();
                             } else {
                                 dispatch(setCurrentTrack({ ...track, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'playlist' }));
                                 dispatch(setPlaying(true));
+                                // Sử dụng audioControl để phát audio
+                                audioControl?.play && audioControl.play();
                             }
                         }}
                     >
