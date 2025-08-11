@@ -13,6 +13,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setCurrentTrack, setPlaying } from '@/store/slices/trackSlice';
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
 import Link from 'next/link';
 import { convertSlugUrl } from '@/utils/api';
 
@@ -25,13 +26,16 @@ const ProfileTracks = (props: IProps) => {
     const theme = useTheme();
     const dispatch = useAppDispatch();
     const { currentTrack, isPlaying, audioControl } = useAppSelector(state => state.track);
+    
+    // Use like sync hook for current track
+    const { isLiked: hookIsLiked } = useLikeSync(data._id);
+    
+    // Use Redux countLike if this is current track, otherwise use track.countLike
+    const displayCountLike = data._id === currentTrack._id 
+        ? currentTrack.countLike 
+        : data.countLike || 0;
 
-    const formatDuration = (seconds: number) => {
-        if (!seconds || seconds === 0) return '0:00';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
+
 
     const formatNumber = (num: number | undefined) => {
         const value = num || 0;
@@ -102,17 +106,24 @@ const ProfileTracks = (props: IProps) => {
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (data._id !== currentTrack._id || 
-                                (data._id === currentTrack._id && !isPlaying)) {
-                                dispatch(setCurrentTrack({ ...data, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
+                            if (data._id === currentTrack._id && isPlaying) {
+                                // Pause current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, isSeeking: false, autoPlay: false, _source: 'profile' }));
+                                dispatch(setPlaying(false));
+                                // Sử dụng audioControl để pause audio
+                                audioControl?.pause && audioControl.pause();
+                            } else if (data._id === currentTrack._id && !isPlaying) {
+                                // Resume current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: true, isSeeking: false, autoPlay: false, _source: 'profile' }));
                                 dispatch(setPlaying(true));
                                 // Sử dụng audioControl để phát audio
                                 audioControl?.play && audioControl.play();
                             } else {
-                                dispatch(setCurrentTrack({ ...data, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
-                                dispatch(setPlaying(false));
-                                // Sử dụng audioControl để pause audio
-                                audioControl?.pause && audioControl.pause();
+                                // Play new track
+                                dispatch(setCurrentTrack({ ...data, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'profile' }));
+                                dispatch(setPlaying(true));
+                                // Sử dụng audioControl để phát audio
+                                audioControl?.play && audioControl.play();
                             }
                         }}
                     >
@@ -124,23 +135,7 @@ const ProfileTracks = (props: IProps) => {
                     </IconButton>
                 </Box>
 
-                {/* Duration Badge */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        background: 'rgba(0,0,0,0.8)',
-                        color: 'white',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        fontWeight: 500
-                    }}
-                >
-                    {formatDuration(data.duration || 0)}
-                </Box>
+
             </Box>
 
             {/* Content Section */}
@@ -203,7 +198,7 @@ const ProfileTracks = (props: IProps) => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <FavoriteIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.6)' }} />
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                                {formatNumber(data.countLike)}
+                                {formatNumber(displayCountLike)}
                             </Typography>
                         </Box>
                     </Box>

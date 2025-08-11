@@ -1,4 +1,4 @@
-import WaveTrack from '@/components/track/wave.track';
+import TrackDetailWrapper from '@/components/track/TrackDetailWrapper';
 import Container from '@mui/material/Container';
 import { sendRequest } from '@/utils/api';
 import { notFound } from 'next/navigation'
@@ -118,7 +118,7 @@ const DetailTrackPage = async (props: any) => {
                 paddingTop: 4,
                 paddingBottom: 4
             }}>
-                <WaveTrack
+                <TrackDetailWrapper
                     track={res?.data ?? null}
                     comments={res1?.data?.result ?? []}
                 />

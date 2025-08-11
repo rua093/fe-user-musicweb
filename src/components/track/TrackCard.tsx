@@ -5,6 +5,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeadphonesIcon from '@mui/icons-material/Headphones';
 import Link from 'next/link';
+import { useAppSelector } from "@/store/hooks";
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
 
 interface IProps {
   track: ITrackTop;
@@ -12,6 +14,16 @@ interface IProps {
 }
 
 const TrackCard: React.FC<IProps> = ({ track, onPlay }) => {
+  const { currentTrack } = useAppSelector(state => state.track);
+  
+  // Use like sync hook for current track
+  const { isLiked: hookIsLiked } = useLikeSync(track._id);
+  
+  // Use Redux countLike if this is current track, otherwise use track.countLike
+  const displayCountLike = track._id === currentTrack._id 
+    ? currentTrack.countLike 
+    : track.countLike || 0;
+
   return (
     <Card
       sx={{
@@ -85,7 +97,7 @@ const TrackCard: React.FC<IProps> = ({ track, onPlay }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <FavoriteIcon sx={{ fontSize: 18, color: '#ff1744' }} />
           <Typography variant="caption" color="#fff">
-            {track.countLike || 0}
+            {displayCountLike}
           </Typography>
         </Box>
       </CardActions>

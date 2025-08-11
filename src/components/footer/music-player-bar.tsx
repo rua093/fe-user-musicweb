@@ -8,6 +8,15 @@ import {
   setSeeking, 
   setSource,
   setAudioControl,
+  setLiked,
+  updateCountLike,
+  setQueue,
+  setCurrentTrackIndex,
+  setAutoPlay,
+  playNext,
+  playPrevious,
+  setShuffle,
+  setRepeat,
   playTrack,
   pauseTrack,
   seekTrack
@@ -30,19 +39,26 @@ import ShuffleIcon from '@mui/icons-material/Shuffle';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { sendRequest } from '@/utils/api';
+import { useSession } from "next-auth/react";
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
+import QueueDisplay from './QueueDisplay';
+import AddToPlaylistModal from './AddToPlaylistModal';
 
 const MusicPlayerBar = () => {
     const hasMounted = useHasMounted();
     const audioRef = useRef<HTMLAudioElement>(null);
     const dispatch = useAppDispatch();
-    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source } = useAppSelector(state => state.track);
+    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source, queue, shuffle, repeat } = useAppSelector(state => state.track);
     const [volume, setVolume] = useState(50);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-    const [isLiked, setIsLiked] = useState(false);
-    const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one'>('none');
-    const [isShuffled, setIsShuffled] = useState(false);
+
     const [showQueue, setShowQueue] = useState(false);
+    const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
     const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const { data: session } = useSession();
+    const { isLiked, toggleLike } = useLikeSync(currentTrack._id);
+
 
 
 
@@ -84,41 +100,47 @@ const MusicPlayerBar = () => {
 
     // Handler cho chuyển bài
     const handlePrevious = () => {
-        // TODO: Implement previous track logic
-        console.log('Previous track');
+        if (queue.tracks.length > 0 && queue.currentIndex > 0) {
+            dispatch(playPrevious());
+        }
     };
 
     const handleNext = () => {
-        // TODO: Implement next track logic
-        console.log('Next track');
+        if (queue.tracks.length > 0 && queue.currentIndex < queue.tracks.length - 1) {
+            dispatch(playNext());
+        }
     };
 
     // Handler cho âm lượng
     const handleVolumeChange = (event: Event, newValue: number | number[]) => {
         const newVolume = newValue as number;
         setVolume(newVolume);
-        if (audioRef.current) {
-            audioRef.current.volume = newVolume / 100;
-        }
+        // Volume sẽ được sync qua useEffect riêng biệt
     };
 
     // Handler cho repeat mode
     const handleRepeatToggle = () => {
-        setRepeatMode(prev => {
-            if (prev === 'none') return 'all';
-            if (prev === 'all') return 'one';
-            return 'none';
-        });
+        if (repeat === 'none') {
+            dispatch(setRepeat('all'));
+        } else if (repeat === 'all') {
+            dispatch(setRepeat('one'));
+        } else {
+            dispatch(setRepeat('none'));
+        }
     };
 
     // Handler cho shuffle
     const handleShuffleToggle = () => {
-        setIsShuffled(prev => !prev);
+        dispatch(setShuffle(!shuffle));
+    };
+
+    const handleAddToPlaylist = () => {
+        setShowAddToPlaylist(true);
     };
 
     // Handler cho like
-    const handleLikeToggle = () => {
-        setIsLiked(prev => !prev);
+    const handleLikeToggle = async () => {
+        await toggleLike();
     };
 
     const getVolumeIcon = () => {
@@ -128,7 +150,7 @@ const MusicPlayerBar = () => {
     };
 
     const getRepeatIcon = () => {
-        if (repeatMode === 'one') return <RepeatOneIcon />;
+        if (repeat === 'one') return <RepeatOneIcon />;
         return <RepeatIcon />;
     };
 
@@ -170,15 +192,14 @@ const MusicPlayerBar = () => {
         };
 
         const handleEnded = () => {
-            // Handle repeat modes
-            if (repeatMode === 'one') {
+            // Handle repeat modes using playNext action
+            if (repeat === 'one') {
+                // Repeat one: restart current track
                 audio.currentTime = 0;
                 audio.play();
-            } else if (repeatMode === 'all') {
-                // TODO: Play next track in queue
-                console.log('Play next track');
             } else {
-                dispatch(setPlaying(false));
+                // Use playNext for 'all' and 'none' modes
+                dispatch(playNext());
             }
         };
 
@@ -202,7 +223,7 @@ const MusicPlayerBar = () => {
             audio.removeEventListener('ended', handleEnded);
             audio.removeEventListener('seeked', handleSeeked);
         };
-    }, [dispatch, source, isSeeking, repeatMode]);
+    }, [dispatch, source, isSeeking, repeat]);
 
     // Register audio control with Redux store
     useEffect(() => {
@@ -241,14 +262,11 @@ const MusicPlayerBar = () => {
         // Update audio source when track changes
         if (currentTrack.trackUrl) {
             const audioUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracks/${currentTrack.trackUrl}`;
-            console.log('🔍 DEBUG: Setting audio source:', audioUrl);
             audio.src = audioUrl;
             audio.load();
             
             // Reset currentTime when track changes
             dispatch(setCurrentTime(0));
-        } else {
-            console.log('🔍 DEBUG: No trackUrl available:', currentTrack);
         }
 
         // Set volume
@@ -258,7 +276,13 @@ const MusicPlayerBar = () => {
         if (autoPlay) {
             audio.play();
         }
-    }, [currentTrack._id, currentTrack.trackUrl, volume, autoPlay, dispatch]);
+    }, [currentTrack._id, currentTrack.trackUrl, autoPlay, dispatch]);
+
+    // Sync volume separately to avoid audio reset
+    useEffect(() => {
+        if (!audioRef.current) return;
+        audioRef.current.volume = volume / 100;
+    }, [volume]);
 
     // Sync currentTime from store (when seeking from other components)
     useEffect(() => {
@@ -502,7 +526,7 @@ const MusicPlayerBar = () => {
                                         <IconButton
                                         onClick={handleShuffleToggle}
                                             sx={{
-                                            color: isShuffled ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
+                                            color: shuffle ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
                                                 '&:hover': {
                                                 color: '#4ecdc4',
                                                 transform: 'scale(1.1)',
@@ -569,11 +593,11 @@ const MusicPlayerBar = () => {
                                 </IconButton>
                             
                                 {/* Repeat Button */}
-                                <Tooltip title={`Repeat ${repeatMode === 'one' ? 'One' : repeatMode === 'all' ? 'All' : 'Off'}`}>
+                                <Tooltip title={`Repeat ${repeat === 'one' ? 'One' : repeat === 'all' ? 'All' : 'Off'}`}>
                                     <IconButton 
                                         onClick={handleRepeatToggle}
                                         sx={{
-                                            color: repeatMode !== 'none' ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
+                                            color: repeat !== 'none' ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
                                             '&:hover': {
                                                 color: '#4ecdc4',
                                                 transform: 'scale(1.1)',
@@ -746,8 +770,9 @@ const MusicPlayerBar = () => {
                                 </Tooltip>
 
                                 {/* Add to Playlist */}
-                                <Tooltip title="Add to playlist">
+                                <Tooltip title="Thêm bài hát vào playlist">
                                     <IconButton
+                                        onClick={handleAddToPlaylist}
                                         sx={{
                                             color: 'rgba(255, 255, 255, 0.7)',
                                             '&:hover': {
@@ -763,22 +788,29 @@ const MusicPlayerBar = () => {
                                 </Tooltip>
 
                                 {/* Queue Button */}
-                                <Tooltip title="Show queue">
-                                    <IconButton
-                                        onClick={() => setShowQueue(!showQueue)}
-                                        sx={{
-                                            color: showQueue ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
-                                            '&:hover': {
-                                                color: '#4ecdc4',
-                                                transform: 'scale(1.1)',
-                                                background: 'rgba(78, 205, 196, 0.1)'
-                                            },
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                    >
-                                        <QueueMusicIcon />
-                                    </IconButton>
-                                </Tooltip>
+                                <Box sx={{ position: 'relative' }}>
+                                    <Tooltip title="Show queue">
+                                        <IconButton
+                                            onClick={() => setShowQueue(!showQueue)}
+                                            sx={{
+                                                color: showQueue ? '#4ecdc4' : 'rgba(255, 255, 255, 0.7)',
+                                                '&:hover': {
+                                                    color: '#4ecdc4',
+                                                    transform: 'scale(1.1)',
+                                                    background: 'rgba(78, 205, 196, 0.1)'
+                                                },
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                        >
+                                            <QueueMusicIcon />
+                                        </IconButton>
+                                    </Tooltip>
+                                    
+                                    <QueueDisplay 
+                                        open={showQueue} 
+                                        onClose={() => setShowQueue(false)} 
+                                    />
+                                </Box>
                         </Stack>
 
                             {/* Volume Bar (Horizontal) */}
@@ -921,6 +953,13 @@ const MusicPlayerBar = () => {
                     `}</style>
                 </AppBar>
             }
+
+            {/* Add to Playlist Modal */}
+            <AddToPlaylistModal
+                open={showAddToPlaylist}
+                onClose={() => setShowAddToPlaylist(false)}
+                track={currentTrack._id ? currentTrack : null}
+            />
         </>
     )
 }

@@ -66,10 +66,16 @@ const AddPlaylistTrack = (props: IProps) => {
         }
 
         const chosenPlaylist = playlists.find(i => i._id === playlistId);
-        let tracks = tracksId?.map(item => item?.split("###")?.[1]);
+        let newTracks = tracksId?.map(item => item?.split("###")?.[1]);
 
         //remove null/undefined/empty
-        tracks = tracks?.filter((item) => item);
+        newTracks = newTracks?.filter((item) => item);
+        
+        // Lấy tracks cũ từ playlist hiện tại
+        const existingTracks = chosenPlaylist?.tracks?.map(track => track._id) || [];
+        
+        // Kết hợp tracks cũ và tracks mới, loại bỏ trùng lặp
+        const allTracks = [...new Set([...existingTracks, ...newTracks])];
         if (chosenPlaylist) {
             const res = await sendRequest<IBackendRes<any>>({
                 url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/playlists`,
@@ -78,7 +84,7 @@ const AddPlaylistTrack = (props: IProps) => {
                     "id": chosenPlaylist._id,
                     "title": chosenPlaylist.title,
                     "isPublic": chosenPlaylist.isPublic,
-                    "tracks": tracks
+                    "tracks": allTracks
                 },
                 headers: {
                     Authorization: `Bearer ${session?.access_token}`,

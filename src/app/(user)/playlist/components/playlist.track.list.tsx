@@ -2,30 +2,37 @@
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setCurrentTrack, setPlaying } from "@/store/slices/trackSlice";
+import { usePlayContext } from '@/utils/hooks/usePlayContext';
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
 import { convertSlugUrl } from "@/utils/api";
 import { Box, Typography, Avatar, IconButton, Collapse, Button } from "@mui/material";
 import Link from "next/link";
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useState } from 'react';
 
 interface IProps {
     tracks: IShareTrack[];
+    playlistId?: string;
 }
 
 const PlaylistTrackList = (props: IProps) => {
-    const { tracks } = props;
+    const { tracks, playlistId } = props;
     const dispatch = useAppDispatch();
     const { currentTrack, isPlaying, audioControl } = useAppSelector(state => state.track);
     const [expanded, setExpanded] = useState(false);
 
-    const formatTime = (seconds: number) => {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    };
+    // Use play context for playlist
+    const { setContextAndLoadQueue } = usePlayContext();
+    
+    // Use like sync hook for current track
+    const { isLiked: hookIsLiked } = useLikeSync(currentTrack._id);
+
+
 
     const displayedTracks = expanded ? tracks : tracks.slice(0, 3);
 
@@ -108,17 +115,28 @@ const PlaylistTrackList = (props: IProps) => {
                         </Typography>
                     </Box>
 
-                    {/* Duration */}
-                    <Typography
-                        variant="caption"
-                        sx={{
-                            color: 'rgba(255,255,255,0.5)',
-                            fontSize: '0.7rem',
-                            mr: 1
-                        }}
-                    >
-                        {formatTime(track.duration || 0)}
-                    </Typography>
+
+
+                    {/* Like Button */}
+                    {track._id === currentTrack._id && (
+                        <IconButton
+                            size="small"
+                            sx={{
+                                color: 'rgba(255,255,255,0.7)',
+                                mr: 0.5,
+                                '&:hover': {
+                                    color: '#ff6b6b',
+                                    background: 'rgba(255,255,255,0.1)'
+                                }
+                            }}
+                        >
+                            {hookIsLiked ? (
+                                <FavoriteIcon sx={{ fontSize: 14, color: '#ff6b6b' }} />
+                            ) : (
+                                <FavoriteBorderIcon sx={{ fontSize: 14 }} />
+                            )}
+                        </IconButton>
+                    )}
 
                     {/* Play/Pause Button */}
                     <IconButton
@@ -130,13 +148,26 @@ const PlaylistTrackList = (props: IProps) => {
                                 background: 'rgba(255,255,255,0.1)'
                             }
                         }}
-                        onClick={() => {
+                        onClick={async () => {
                             if (track._id === currentTrack._id && isPlaying) {
-                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'playlist' }));
+                                // Pause current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, isSeeking: false, autoPlay: false, _source: 'playlist' }));
                                 dispatch(setPlaying(false));
                                 // Sử dụng audioControl để pause audio
                                 audioControl?.pause && audioControl.pause();
+                            } else if (track._id === currentTrack._id && !isPlaying) {
+                                // Resume current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: true, isSeeking: false, autoPlay: false, _source: 'playlist' }));
+                                dispatch(setPlaying(true));
+                                // Sử dụng audioControl để phát audio
+                                audioControl?.play && audioControl.play();
                             } else {
+                                // Play new track - set context and load queue for playlist
+                                await setContextAndLoadQueue({
+                                    type: 'playlist',
+                                    id: playlistId
+                                }, track);
+                                
                                 dispatch(setCurrentTrack({ ...track, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'playlist' }));
                                 dispatch(setPlaying(true));
                                 // Sử dụng audioControl để phát audio

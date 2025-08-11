@@ -17,7 +17,9 @@ import {
   setSeeking, 
   setSource 
 } from "@/store/slices/trackSlice";
+import { usePlayContext } from '@/utils/hooks/usePlayContext';
 import { fetchDefaultImages, sendRequest } from "@/utils/api";
+import { useSession } from "next-auth/react";
 import CommentTrack from "./comment.track";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -48,7 +50,16 @@ const WaveTrack = (props: IProps) => {
     
     // Redux hooks
     const dispatch = useAppDispatch();
-    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source } = useAppSelector(state => state.track);
+    const { currentTrack, isPlaying, currentTime, duration, isSeeking, autoPlay, source, queue } = useAppSelector(state => state.track);
+    
+    // Use Redux countLike if this is current track, otherwise use track.countLike
+    const displayCountLike = track?._id === currentTrack._id 
+        ? currentTrack.countLike 
+        : track?.countLike || 0;
+
+    // Use play context for track detail
+    const { setContextAndLoadQueue } = usePlayContext();
+    const { data: session } = useSession();
 
     const wavesurferRef = useRef<any>(null);
     const [lastUpdate, setLastUpdate] = useState<number>(0);
@@ -127,13 +138,7 @@ const WaveTrack = (props: IProps) => {
     useEffect(() => {
         if (!wavesurfer) return;
 
-        // Debug WaveSurfer state
-        if (wavesurfer) {
-            console.log('🔍 DEBUG: WaveSurfer state:', {
-                getDuration: wavesurfer.getDuration(),
-                getCurrentTime: wavesurfer.getCurrentTime()
-            });
-        }
+
 
         const hover = hoverRef.current!;
         const waveform = containerRef.current!;
@@ -141,7 +146,6 @@ const WaveTrack = (props: IProps) => {
 
         const subscriptions = [
             wavesurfer.on('decode', (duration) => {
-                console.log('🔍 DEBUG: WaveSurfer decoded audio, duration:', duration);
                 setLocalDuration(formatTime(duration));
                 // Cập nhật duration vào store chỉ khi đây là track đang phát
                 if (currentTrack._id === track?._id) {
@@ -149,7 +153,7 @@ const WaveTrack = (props: IProps) => {
                 }
             }),
             wavesurfer.on('ready', () => {
-                console.log('🔍 DEBUG: WaveSurfer is ready');
+                // WaveSurfer is ready
             }),
 
             wavesurfer.on('interaction', () => {
@@ -240,11 +244,16 @@ const WaveTrack = (props: IProps) => {
     }, [wavesurfer, currentTrack._id, track?._id]);
 
     // On play button click: chỉ cập nhật store, không gọi wavesurfer play
-    const onPlayClick = useCallback(() => {
+    const onPlayClick = useCallback(async () => {
         if (!track) return;
         
         // Nếu đây là track khác với track đang phát, set làm track mới
         if (currentTrack._id !== track._id) {
+            // Set context and load queue for detail page
+            await setContextAndLoadQueue({
+                type: 'detail'
+            }, track);
+            
             dispatch(setCurrentTrack({ 
                 ...track, 
                 isPlaying: true, 
@@ -256,11 +265,15 @@ const WaveTrack = (props: IProps) => {
             }));
         } else {
             // Nếu đây là track đang phát, chỉ toggle play/pause
+            // But also ensure queue is loaded if it's empty
+            if (!queue.tracks.length && track.category) {
+                await setContextAndLoadQueue({ type: 'detail' }, track);
+            }
             dispatch(setPlaying(!isPlaying));
             dispatch(setSource('wave'));
         }
         
-    }, [track, currentTrack._id, isPlaying, dispatch]);
+    }, [track, currentTrack._id, isPlaying, dispatch, setContextAndLoadQueue, queue.tracks.length]);
 
     const formatTime = (seconds: number) => {
         const minutes = Math.floor(seconds / 60)
@@ -319,6 +332,18 @@ const WaveTrack = (props: IProps) => {
             wavesurfer.play();
         }
     }, [autoPlay, track, currentTrack, wavesurfer, isPlaying]);
+
+    // Load queue when track is set as current track (for detail page)
+    useEffect(() => {
+        if (track?._id && currentTrack?._id === track._id && track.category) {
+            // Check if queue is empty or doesn't match current context
+            if (!queue.tracks.length || queue.source !== 'category') {
+                setContextAndLoadQueue({ type: 'detail' }, track);
+            }
+        }
+    }, [track, currentTrack._id, queue.tracks.length, queue.source, setContextAndLoadQueue]);
+
+
 
 
 
@@ -468,7 +493,7 @@ const WaveTrack = (props: IProps) => {
                                 />
                                 <Chip 
                                     icon={<FavoriteIcon />} 
-                                    label={track?.countLike || 0}
+                                    label={displayCountLike}
                                     sx={{
                                         background: 'rgba(239, 68, 68, 0.2)',
                                         color: '#F87171',

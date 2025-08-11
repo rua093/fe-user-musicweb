@@ -9,7 +9,6 @@ import CardMedia from '@mui/material/CardMedia';
 import IconButton from '@mui/material/IconButton';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AddIcon from '@mui/icons-material/Add';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import { sendRequest } from "@/utils/api";
 import { getServerSession } from "next-auth";
@@ -17,12 +16,17 @@ import { authOptions } from "@/app/api/auth/auth.options";
 import NewPlaylist from "./components/new.playlist";
 import AddPlaylistTrack from "./components/add.playlist.track";
 import PlaylistTrackList from "./components/playlist.track.list";
+import EditPlaylist from "./components/edit.playlist";
+import DeletePlaylist from "./components/delete.playlist";
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
     title: 'Playlist - MilkyWay',
     description: 'Quản lý playlist yêu thích trong vũ trụ âm nhạc MilkyWay',
 }
+
+// Force dynamic rendering để luôn fetch fresh data
+export const dynamic = 'force-dynamic';
 
 const PlaylistPage = async () => {
     const session = await getServerSession(authOptions);
@@ -35,7 +39,10 @@ const PlaylistPage = async () => {
             Authorization: `Bearer ${session?.access_token}`,
         },
         nextOption: {
-            next: { tags: ['playlist-by-user'] }
+            next: { 
+                tags: ['playlist-by-user'],
+                revalidate: 0 // Disable cache để luôn fetch fresh data
+            }
         }
     })
 
@@ -164,17 +171,10 @@ const PlaylistPage = async () => {
                 ) : (
                     <Grid container spacing={3}>
                         {playlists?.map((playlist, index) => {
-                            const totalDuration = playlist.tracks?.reduce((acc, track) => acc + (track.duration || 0), 0) || 0;
-                            const hours = Math.floor(totalDuration / 3600);
-                            const minutes = Math.floor((totalDuration % 3600) / 60);
-                            
                             return (
                                 <Grid item xs={12} sm={6} md={4} key={playlist._id}>
                                     <PlaylistCard 
                                         playlist={playlist}
-                                        totalDuration={totalDuration}
-                                        hours={hours}
-                                        minutes={minutes}
                                         index={index}
                                     />
                                 </Grid>
@@ -188,7 +188,7 @@ const PlaylistPage = async () => {
 }
 
 // Playlist Card Component với theme vũ trụ
-const PlaylistCard = ({ playlist, totalDuration, hours, minutes, index }: any) => {
+const PlaylistCard = ({ playlist, index }: any) => {
     const getCosmicGradient = (index: number) => {
         const gradients = [
             'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple nebula
@@ -254,9 +254,10 @@ const PlaylistCard = ({ playlist, totalDuration, hours, minutes, index }: any) =
                     >
                         {playlist.title}
                     </Typography>
-                    <IconButton size="small">
-                        <MoreVertIcon sx={{ color: 'rgba(255,255,255,0.6)' }} />
-                    </IconButton>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <EditPlaylist playlist={playlist} />
+                        <DeletePlaylist playlist={playlist} />
+                    </Box>
                 </Box>
 
                 <Typography 
@@ -269,16 +270,7 @@ const PlaylistCard = ({ playlist, totalDuration, hours, minutes, index }: any) =
                     {playlist.tracks?.length || 0} bài hát
                 </Typography>
 
-                <Typography 
-                    variant="body2" 
-                    sx={{ 
-                        color: 'rgba(255,255,255,0.5)',
-                        fontSize: '0.875rem',
-                        mb: 2
-                    }}
-                >
-                    {hours > 0 ? `${hours} giờ ` : ''}{minutes} phút
-                </Typography>
+
 
                 {playlist.tracks && playlist.tracks.length > 0 && (
                     <Box 
@@ -302,7 +294,7 @@ const PlaylistCard = ({ playlist, totalDuration, hours, minutes, index }: any) =
                             },
                         }}
                     >
-                        <PlaylistTrackList tracks={playlist.tracks} />
+                                                    <PlaylistTrackList tracks={playlist.tracks} playlistId={playlist._id} />
                     </Box>
                 )}
             </CardContent>

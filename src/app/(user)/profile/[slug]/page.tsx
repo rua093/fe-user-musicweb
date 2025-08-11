@@ -34,9 +34,6 @@ const ProfilePage = async ({ params }: { params: { slug: string } }) => {
     const totalTracks = data.length;
     const totalPlays = data.reduce((sum, track) => sum + (track.countPlay || 0), 0);
     const totalLikes = data.reduce((sum, track) => sum + (track.countLike || 0), 0);
-    const totalDuration = data.reduce((sum, track) => sum + (track.duration || 0), 0);
-    const hours = Math.floor(totalDuration / 3600);
-    const minutes = Math.floor((totalDuration % 3600) / 60);
 
     return (
         <Box sx={{ minHeight: '100vh', background: '#000' }}>
@@ -172,7 +169,7 @@ const ProfilePage = async ({ params }: { params: { slug: string } }) => {
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={6} sm={3}>
+                                <Grid item xs={6} sm={4}>
                                     <Box sx={{ textAlign: 'center', color: 'white' }}>
                                         <Typography variant="h4" sx={{ 
                                             fontWeight: 700,
@@ -189,7 +186,7 @@ const ProfilePage = async ({ params }: { params: { slug: string } }) => {
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={6} sm={3}>
+                                <Grid item xs={6} sm={4}>
                                     <Box sx={{ textAlign: 'center', color: 'white' }}>
                                         <Typography variant="h4" sx={{ 
                                             fontWeight: 700,
@@ -206,23 +203,7 @@ const ProfilePage = async ({ params }: { params: { slug: string } }) => {
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={6} sm={3}>
-                                    <Box sx={{ textAlign: 'center', color: 'white' }}>
-                                        <Typography variant="h4" sx={{ 
-                                            fontWeight: 700,
-                                            textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                            mb: 0.5
-                                        }}>
-                                            {hours}h {minutes}m
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ 
-                                            opacity: 0.8,
-                                            fontWeight: 500
-                                        }}>
-                                            Tổng thời gian
-                                        </Typography>
-                                    </Box>
-                                </Grid>
+
                             </Grid>
                         </Box>
                     </Box>

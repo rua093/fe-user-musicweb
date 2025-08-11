@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     description: 'Khám phá những bài hát bạn đã yêu thích trong vũ trụ âm nhạc MilkyWay',
 }
 
+// Force dynamic rendering để luôn fetch fresh data
+export const dynamic = 'force-dynamic';
+
 const LikePage = async () => {
     const session = await getServerSession(authOptions);
 
@@ -25,7 +28,10 @@ const LikePage = async () => {
             Authorization: `Bearer ${session?.access_token}`,
         },
         nextOption: {
-            next: { tags: ['liked-by-user'] }
+            next: { 
+                tags: ['liked-by-user'],
+                revalidate: 0 // Disable cache để luôn fetch fresh data
+            }
         }
     })
 

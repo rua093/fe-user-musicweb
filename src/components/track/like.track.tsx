@@ -10,6 +10,9 @@ import { handleLikeTrackAction } from '@/utils/actions/actions';
 import { Box, Typography, IconButton, Paper } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setLiked, updateCountLike } from "@/store/slices/trackSlice";
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
 
 interface IProps {
     track: ITrackTop | null;
@@ -18,6 +21,14 @@ const LikeTrack = (props: IProps) => {
     const { track } = props;
     const { data: session } = useSession();
     const router = useRouter();
+    const dispatch = useAppDispatch();
+    const { isLiked: reduxIsLiked, currentTrack } = useAppSelector(state => state.track);
+    const { isLiked: hookIsLiked, toggleLike: hookToggleLike } = useLikeSync(track?._id);
+
+    // Use Redux countLike if this is current track, otherwise use track.countLike
+    const displayCountLike = track?._id === currentTrack._id 
+        ? currentTrack.countLike 
+        : track?.countLike || 0;
 
     const [trackLikes, setTrackLikes] = useState<ITrackLike[] | null>(null);
 
@@ -43,16 +54,46 @@ const LikeTrack = (props: IProps) => {
         fetchData();
     }, [session])
 
-    const handleLikeTrack = async () => {
-        const id = track?._id;
-        const quantity = trackLikes?.some(t => t._id === track?._id) ? -1 : 1;
-        await handleLikeTrackAction(id, quantity)
-        fetchData();
-        router.refresh();
 
+
+    const handleLikeTrack = async () => {
+        // If this is the current track, use hook
+        if (track?._id === currentTrack._id) {
+            await hookToggleLike();
+        } else {
+            // For other tracks, use original logic
+            const id = track?._id;
+            const quantity = trackLikes?.some(t => t._id === track?._id) ? -1 : 1;
+            await handleLikeTrackAction(id, quantity)
+            fetchData();
+            
+            // Update countLike if this is the current track
+            if (track?._id === currentTrack._id) {
+                const currentCount = currentTrack.countLike;
+                const newCount = trackLikes?.some(t => t._id === track?._id) 
+                    ? Math.max(0, currentCount - 1) 
+                    : currentCount + 1;
+                dispatch(updateCountLike(newCount));
+            }
+        }
+        
+        // Revalidate cache để cập nhật trang like
+        await sendRequest<IBackendRes<any>>({
+            url: `/api/revalidate`,
+            method: "POST",
+            queryParams: {
+                tag: "liked-by-user",
+                secret: "justArandomString"
+            }
+        });
+        
+        router.refresh();
     }
 
-    const isLiked = trackLikes?.some(t => t._id === track?._id);
+    // Use hook state if track is current track, otherwise use local state
+    const isLiked = track?._id === currentTrack._id 
+        ? hookIsLiked 
+        : trackLikes?.some(t => t._id === track?._id);
 
     return (
         <Box sx={{
@@ -99,7 +140,7 @@ const LikeTrack = (props: IProps) => {
                         {isLiked ? 'Liked' : 'Like this track'}
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
-                        {track?.countLike || 0} likes
+                        {displayCountLike} likes
                     </Typography>
                 </Box>
             </Box>
@@ -141,7 +182,7 @@ const LikeTrack = (props: IProps) => {
                             Likes
                         </Typography>
                         <Typography variant="body2" sx={{ color: '#F87171', fontWeight: 600 }}>
-                            {track?.countLike || 0}
+                            {displayCountLike}
                         </Typography>
                     </Box>
                 </Paper>

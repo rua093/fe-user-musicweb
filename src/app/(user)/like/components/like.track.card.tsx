@@ -2,6 +2,8 @@
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setCurrentTrack, setPlaying } from "@/store/slices/trackSlice";
+import { usePlayContext } from '@/utils/hooks/usePlayContext';
+import { useLikeSync } from '@/utils/hooks/useLikeSync';
 import { convertSlugUrl } from "@/utils/api";
 import { Box, Typography, Card, CardContent, CardMedia, IconButton, Chip } from "@mui/material";
 import Link from "next/link";
@@ -22,11 +24,18 @@ const LikeTrackCard = (props: IProps) => {
     const { currentTrack, isPlaying, audioControl } = useAppSelector(state => state.track);
     const [isHovered, setIsHovered] = useState(false);
 
-    const formatTime = (seconds: number) => {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    };
+    // Use play context for like tracks
+    const { setContextAndLoadQueue } = usePlayContext();
+    
+    // Use like sync hook for current track
+    const { isLiked: hookIsLiked } = useLikeSync(track._id);
+    
+    // Use Redux countLike if this is current track, otherwise use track.countLike
+    const displayCountLike = track._id === currentTrack._id 
+        ? currentTrack.countLike 
+        : track.countLike || 0;
+
+
 
     const getCosmicGradient = (index: number) => {
         const gradients = [
@@ -101,15 +110,27 @@ const LikeTrackCard = (props: IProps) => {
                                 boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
                             }
                         }}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             if (track._id === currentTrack._id && isPlaying) {
-                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'like' }));
+                                // Pause current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: false, isSeeking: false, autoPlay: false, _source: 'like' }));
                                 dispatch(setPlaying(false));
                                 // Sử dụng audioControl để pause audio
                                 audioControl?.pause && audioControl.pause();
+                            } else if (track._id === currentTrack._id && !isPlaying) {
+                                // Resume current track without resetting currentTime
+                                dispatch(setCurrentTrack({ ...currentTrack, isPlaying: true, isSeeking: false, autoPlay: false, _source: 'like' }));
+                                dispatch(setPlaying(true));
+                                // Sử dụng audioControl để phát audio
+                                audioControl?.play && audioControl.play();
                             } else {
+                                // Play new track - set context and load queue for like tracks
+                                await setContextAndLoadQueue({
+                                    type: 'like'
+                                }, track);
+                                
                                 dispatch(setCurrentTrack({ ...track, isPlaying: true, currentTime: 0, isSeeking: false, autoPlay: false, _source: 'like' }));
                                 dispatch(setPlaying(true));
                                 // Sử dụng audioControl để phát audio
@@ -146,26 +167,7 @@ const LikeTrackCard = (props: IProps) => {
                     <FavoriteIcon sx={{ color: '#ff6b6b', fontSize: 20 }} />
                 </Box>
 
-                {/* Duration Badge */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        bottom: 12,
-                        right: 12,
-                        background: 'rgba(0,0,0,0.8)',
-                        backdropFilter: 'blur(10px)',
-                        color: 'white',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 2,
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                        zIndex: 1,
-                        border: '1px solid rgba(255,255,255,0.1)'
-                    }}
-                >
-                    {formatTime(track.duration || 0)}
-                </Box>
+
             </Box>
 
             {/* Track Info */}
@@ -238,7 +240,7 @@ const LikeTrackCard = (props: IProps) => {
                         }}
                     />
                     <Chip
-                        label={`${track.countLike} lượt thích`}
+                        label={`${displayCountLike} lượt thích`}
                         size="small"
                         sx={{
                             background: 'rgba(255,255,255,0.05)',

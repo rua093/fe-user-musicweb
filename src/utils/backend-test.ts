@@ -30,8 +30,5 @@ export const testBackendConnection = async (): Promise<{ success: boolean; url: 
 
 // Log backend configuration for debugging
 export const logBackendConfig = (): void => {
-  console.log('Backend Configuration:');
-  console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('Fallback URL: http://localhost:8080');
+  
 };
